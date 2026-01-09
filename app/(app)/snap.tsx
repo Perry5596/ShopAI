@@ -61,12 +61,12 @@ export default function SnapScreen() {
         base64: false,
       });
       
-      // Navigate to shop screen with the captured image
-      // In a real app, you'd upload the image and get results
-      router.push('/(app)/shop/new');
+      // TODO: Upload image for AI processing
+      // Dismiss the camera modal - home screen is already underneath
+      // The new item will appear in the recent shops list in a loading state
+      router.back();
     } catch (error) {
       Alert.alert('Error', 'Failed to capture image. Please try again.');
-    } finally {
       setIsCapturing(false);
     }
   };
@@ -79,8 +79,10 @@ export default function SnapScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      // Navigate to shop screen with the selected image
-      router.push('/(app)/shop/new');
+      // TODO: Upload image for AI processing
+      // Dismiss the camera modal - home screen is already underneath
+      // The new item will appear in the recent shops list in a loading state
+      router.back();
     }
   };
 
@@ -106,7 +108,7 @@ export default function SnapScreen() {
       <CameraView
         ref={cameraRef}
         facing="back"
-        zoom={zoom === 0.5 ? 0 : 0}
+        zoomLevel={zoom}
         enableTorch={isFlashOn}
       />
 

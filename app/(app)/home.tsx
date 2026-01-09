@@ -1,6 +1,6 @@
 import { View, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Header, InfoCard, RecentShops, FloatingActionButton } from '@/components/home';
+import { Header, StatsCard, MiniStatsRow, RecentShops, FloatingActionButton } from '@/components/home';
 import type { Shop } from '@/types';
 
 // Mock data for demonstration
@@ -137,6 +137,9 @@ const MOCK_SHOPS: Shop[] = [
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
 
+  const totalProducts = MOCK_SHOPS.reduce((acc, s) => acc + s.products.length, 0);
+  const totalFavorites = MOCK_SHOPS.filter((s) => s.isFavorite).length;
+
   return (
     <View className="flex-1 bg-background-secondary">
       {/* Header */}
@@ -146,7 +149,6 @@ export default function HomeScreen() {
         <Header
           userName={MOCK_USER.name}
           userAvatar={MOCK_USER.avatarUrl}
-          earnings={24.50}
         />
       </View>
 
@@ -155,35 +157,26 @@ export default function HomeScreen() {
         className="flex-1"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 }}>
-        {/* Info Cards */}
-        <View className="bg-background pb-4">
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 20 }}>
-            <InfoCard
-              title="Total Shops"
-              value={MOCK_SHOPS.length.toString()}
-              icon="bag-outline"
-              iconColor="#000000"
-            />
-            <InfoCard
-              title="Favorites"
-              value={MOCK_SHOPS.filter((s) => s.isFavorite).length.toString()}
-              icon="heart-outline"
-              iconColor="#EF4444"
-            />
-            <InfoCard
-              title="Products Found"
-              value={MOCK_SHOPS.reduce((acc, s) => acc + s.products.length, 0).toString()}
-              icon="link-outline"
-              iconColor="#3B82F6"
-            />
-          </ScrollView>
+        {/* Stats Section */}
+        <View className="bg-background-secondary pt-4">
+          {/* Main Stats Card */}
+          <StatsCard
+            totalShops={MOCK_SHOPS.length}
+            totalProducts={totalProducts}
+            favorites={totalFavorites}
+            thisWeek={2}
+          />
+
+          {/* Mini Stats Row */}
+          <MiniStatsRow
+            favorites={totalFavorites}
+            products={totalProducts}
+            savings={47}
+          />
         </View>
 
         {/* Recent Shops */}
-        <View className="mt-4">
+        <View className="bg-background-secondary">
           <RecentShops shops={MOCK_SHOPS} />
         </View>
       </ScrollView>

@@ -1,6 +1,5 @@
-import { View, Text, Image, TouchableOpacity, Linking, FlatList } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import type { ProductLink } from '@/types';
 
@@ -68,7 +67,7 @@ function RecommendedItem({ link }: { link: ProductLink }) {
     <TouchableOpacity
       onPress={handlePress}
       activeOpacity={0.7}
-      className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-4 mb-4 border border-amber-200">
+      className="bg-amber-50 rounded-xl p-4 mb-4 border border-amber-200">
       <View className="flex-row items-center mb-2">
         <Ionicons name="sparkles" size={16} color="#F59E0B" />
         <Text className="text-[14px] font-semibold text-amber-700 ml-1">
@@ -109,8 +108,10 @@ function RecommendedItem({ link }: { link: ProductLink }) {
 }
 
 export function ProductLinks({ links, recommendation }: ProductLinksProps) {
+  const filteredLinks = links.filter((l) => l.id !== recommendation?.id);
+
   return (
-    <View className="flex-1 px-5 pt-4">
+    <View className="px-5 pt-4">
       {/* Recommendation */}
       {recommendation && <RecommendedItem link={recommendation} />}
 
@@ -119,13 +120,10 @@ export function ProductLinks({ links, recommendation }: ProductLinksProps) {
         {links.length} product{links.length !== 1 ? 's' : ''} found
       </Text>
 
-      <FlatList
-        data={links.filter((l) => l.id !== recommendation?.id)}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <ProductLinkItem link={item} />}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
-      />
+      {/* Render as regular View instead of FlatList to avoid nesting issues */}
+      {filteredLinks.map((link) => (
+        <ProductLinkItem key={link.id} link={link} />
+      ))}
     </View>
   );
 }

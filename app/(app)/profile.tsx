@@ -171,9 +171,9 @@ export default function ProfileScreen() {
     <View className="flex-1 bg-background-secondary">
       {/* Header */}
       <View
-        className="bg-background px-5 pb-4"
+        className="bg-background-secondary"
         style={{ paddingTop: insets.top + 8 }}>
-        <View className="flex-row items-center justify-between mb-6">
+        <View className="flex-row items-center justify-between px-5 mb-4">
           <IconButton
             icon="chevron-back"
             variant="ghost"
@@ -183,8 +183,14 @@ export default function ProfileScreen() {
           <Text className="text-[28px] font-bold text-foreground">Profile</Text>
           <View className="w-10" />
         </View>
+      </View>
 
-        {/* Profile Card */}
+      {/* Settings Sections */}
+      <ScrollView
+        className="flex-1 px-5"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
+        {/* Profile Card - Now in its own section */}
         <ProfileCard
           name={MOCK_USER.name}
           username={MOCK_USER.username}
@@ -192,13 +198,9 @@ export default function ProfileScreen() {
           isPremium={MOCK_USER.isPremium}
           onPress={handleEditProfile}
         />
-      </View>
+        
+        <View className="h-6" />
 
-      {/* Settings Sections */}
-      <ScrollView
-        className="flex-1 px-5 pt-6"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
         {settingsSections.map((section) => (
           <SettingsSection
             key={section.title}

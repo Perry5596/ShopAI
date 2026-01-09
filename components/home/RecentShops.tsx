@@ -1,4 +1,4 @@
-import { View, Text, Image, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, Image, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import type { Shop } from '@/types';
@@ -80,7 +80,7 @@ function ShopItem({ shop }: { shop: Shop }) {
 export function RecentShops({ shops }: RecentShopsProps) {
   if (shops.length === 0) {
     return (
-      <View className="flex-1 items-center justify-center py-12">
+      <View className="items-center justify-center py-12">
         <View className="w-16 h-16 rounded-full bg-background-secondary items-center justify-center mb-4">
           <Ionicons name="bag-outline" size={32} color="#9CA3AF" />
         </View>
@@ -93,17 +93,15 @@ export function RecentShops({ shops }: RecentShopsProps) {
   }
 
   return (
-    <View className="flex-1">
+    <View>
       <Text className="text-[18px] font-bold text-foreground mb-4 px-5">
         Recent shops
       </Text>
-      <FlatList
-        data={shops}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <ShopItem shop={item} />}
-        contentContainerStyle={{ paddingHorizontal: 20 }}
-        showsVerticalScrollIndicator={false}
-      />
+      <View className="px-5">
+        {shops.map((shop) => (
+          <ShopItem key={shop.id} shop={shop} />
+        ))}
+      </View>
     </View>
   );
 }

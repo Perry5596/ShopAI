@@ -14,13 +14,6 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: '#FFFFFF' },
         }}>
         <Stack.Screen name="index" />
-        <Stack.Screen
-          name="(auth)/sign-in"
-          options={{
-            presentation: 'transparentModal',
-            animation: 'fade',
-          }}
-        />
         <Stack.Screen name="(app)" />
       </Stack>
     </GestureHandlerRootView>

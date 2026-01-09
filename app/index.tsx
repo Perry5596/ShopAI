@@ -1,4 +1,4 @@
-import { View, Text, Image } from 'react-native';
+import { View, Text, Linking } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,8 +7,24 @@ import { Button } from '@/components/ui/Button';
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
 
-  const handleGetStarted = () => {
-    router.push('/(auth)/sign-in');
+  const handleAppleSignIn = () => {
+    // TODO: Implement Apple Sign In
+    router.replace('/(app)/home');
+  };
+
+  const handleGoogleSignIn = () => {
+    // TODO: Implement Google Sign In
+    router.replace('/(app)/home');
+  };
+
+  const handleTermsPress = () => {
+    // TODO: Replace with actual terms URL
+    Linking.openURL('https://example.com/terms');
+  };
+
+  const handlePrivacyPress = () => {
+    // TODO: Replace with actual privacy URL
+    Linking.openURL('https://example.com/privacy');
   };
 
   return (
@@ -31,22 +47,45 @@ export default function WelcomeScreen() {
         </Text>
       </View>
 
-      {/* Bottom Section */}
+      {/* Bottom Section - Sign In Buttons */}
       <View
         className="px-6"
         style={{ paddingBottom: insets.bottom + 24 }}>
-        {/* Get Started Button */}
+        {/* Apple Sign In */}
         <Button
-          title="Get Started"
+          title="Continue with Apple"
           variant="primary"
           size="lg"
+          icon="logo-apple"
           fullWidth
-          onPress={handleGetStarted}
+          onPress={handleAppleSignIn}
+          className="mb-3"
         />
 
-        {/* Terms */}
-        <Text className="text-[12px] text-foreground-subtle text-center mt-4 px-4">
-          By continuing, you agree to our Terms of Service and Privacy Policy
+        {/* Google Sign In */}
+        <Button
+          title="Continue with Google"
+          variant="outline"
+          size="lg"
+          icon="logo-google"
+          fullWidth
+          onPress={handleGoogleSignIn}
+        />
+
+        {/* Terms & Privacy */}
+        <Text className="text-[12px] text-foreground-subtle text-center mt-6 px-4">
+          By signing in, you agree to our{' '}
+          <Text 
+            className="text-foreground-muted underline"
+            onPress={handleTermsPress}>
+            Terms of Service
+          </Text>
+          {' '}and{' '}
+          <Text 
+            className="text-foreground-muted underline"
+            onPress={handlePrivacyPress}>
+            Privacy Policy
+          </Text>
         </Text>
       </View>
     </View>
