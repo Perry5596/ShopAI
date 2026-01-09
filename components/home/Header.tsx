@@ -13,10 +13,8 @@ export function Header({ userName, userAvatar }: HeaderProps) {
     <View className="flex-row items-center justify-between px-5 py-3">
       {/* Logo and App Name */}
       <View className="flex-row items-center">
-        <View className="w-8 h-8 bg-accent rounded-lg items-center justify-center mr-2">
-          <Ionicons name="bag" size={18} color="#FFFFFF" />
-        </View>
-        <Text className="text-[22px] font-bold text-foreground">Shop AI</Text>
+        <Ionicons name="bag" size={26} color="#000000" />
+        <Text className="text-[22px] font-inter-semibold text-foreground ml-2">Shop AI</Text>
       </View>
 
       {/* Profile Button */}

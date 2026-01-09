@@ -82,13 +82,13 @@ export function StatsCard({
         {/* Left side - Main stat */}
         <View className="flex-1">
           <View className="flex-row items-baseline">
-            <Text className="text-[48px] font-bold text-foreground">{totalShops}</Text>
-            <Text className="text-[16px] text-foreground-muted ml-1">shops</Text>
+            <Text className="text-[48px] font-inter-semibold text-foreground">{totalShops}</Text>
+            <Text className="text-[16px] font-inter text-foreground-muted ml-1">shops</Text>
           </View>
           <View className="flex-row items-center mt-1">
-            <Text className="text-[14px] text-foreground-muted">Total scans</Text>
+            <Text className="text-[14px] font-inter text-foreground-muted">Total scans</Text>
             <View className="flex-row items-center ml-2 bg-green-100 px-2 py-0.5 rounded-full">
-              <Text className="text-[12px] text-green-600 font-medium">+{thisWeek}</Text>
+              <Text className="text-[12px] font-inter-medium text-green-600">+{thisWeek}</Text>
             </View>
           </View>
         </View>
@@ -115,7 +115,15 @@ export function MiniStatsRow({ favorites, products, savings }: MiniStatsRowProps
   return (
     <View className="flex-row mx-5 mb-4 space-x-3">
       {/* Favorites */}
-      <View className="flex-1 bg-card rounded-2xl p-4 items-center">
+      <View 
+        className="flex-1 bg-card rounded-2xl p-4 items-center"
+        style={{
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.05,
+          shadowRadius: 3,
+          elevation: 1,
+        }}>
         <View className="relative mb-2">
           <CircularProgress 
             progress={Math.min((favorites / 20) * 100, 100)} 
@@ -128,12 +136,20 @@ export function MiniStatsRow({ favorites, products, savings }: MiniStatsRowProps
             <Ionicons name="heart" size={18} color="#EF4444" />
           </View>
         </View>
-        <Text className="text-[20px] font-bold text-foreground">{favorites}</Text>
-        <Text className="text-[12px] text-foreground-muted">Favorites</Text>
+        <Text className="text-[20px] font-inter-semibold text-foreground">{favorites}</Text>
+        <Text className="text-[12px] font-inter text-foreground-muted">Favorites</Text>
       </View>
 
       {/* Products Found */}
-      <View className="flex-1 bg-card rounded-2xl p-4 items-center ml-3">
+      <View 
+        className="flex-1 bg-card rounded-2xl p-4 items-center ml-3"
+        style={{
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.05,
+          shadowRadius: 3,
+          elevation: 1,
+        }}>
         <View className="relative mb-2">
           <CircularProgress 
             progress={Math.min((products / 100) * 100, 100)} 
@@ -146,12 +162,20 @@ export function MiniStatsRow({ favorites, products, savings }: MiniStatsRowProps
             <Ionicons name="link" size={18} color="#3B82F6" />
           </View>
         </View>
-        <Text className="text-[20px] font-bold text-foreground">{products}</Text>
-        <Text className="text-[12px] text-foreground-muted">Products</Text>
+        <Text className="text-[20px] font-inter-semibold text-foreground">{products}</Text>
+        <Text className="text-[12px] font-inter text-foreground-muted">Products</Text>
       </View>
 
       {/* Potential Savings */}
-      <View className="flex-1 bg-card rounded-2xl p-4 items-center ml-3">
+      <View 
+        className="flex-1 bg-card rounded-2xl p-4 items-center ml-3"
+        style={{
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.05,
+          shadowRadius: 3,
+          elevation: 1,
+        }}>
         <View className="relative mb-2">
           <CircularProgress 
             progress={65} 
@@ -164,8 +188,8 @@ export function MiniStatsRow({ favorites, products, savings }: MiniStatsRowProps
             <Ionicons name="trending-up" size={18} color="#22C55E" />
           </View>
         </View>
-        <Text className="text-[20px] font-bold text-foreground">${savings}</Text>
-        <Text className="text-[12px] text-foreground-muted">Saved</Text>
+        <Text className="text-[20px] font-inter-semibold text-foreground">${savings}</Text>
+        <Text className="text-[12px] font-inter text-foreground-muted">Saved</Text>
       </View>
     </View>
   );

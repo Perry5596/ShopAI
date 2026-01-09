@@ -183,15 +183,14 @@ export default function ProfileScreen() {
       <View
         className="bg-background-secondary"
         style={{ paddingTop: insets.top + 8 }}>
-        <View className="flex-row items-center justify-between px-5 mb-4">
+        <View className="flex-row items-center px-5 mb-4">
           <IconButton
             icon="chevron-back"
             variant="ghost"
             size="md"
             onPress={() => router.back()}
           />
-          <Text className="text-[28px] font-bold text-foreground">Profile</Text>
-          <View className="w-10" />
+          <Text className="text-[22px] font-inter-semibold text-foreground ml-2">Profile</Text>
         </View>
       </View>
 

@@ -105,7 +105,7 @@ export const Button = forwardRef<View, ButtonProps>(
             )}
             <Text
               className={`
-                font-semibold
+                font-inter-medium
                 ${variantStyle.text}
                 ${sizeStyle.text}
               `}>

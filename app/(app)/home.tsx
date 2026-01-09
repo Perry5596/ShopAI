@@ -1,4 +1,6 @@
-import { View, ScrollView } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Header, StatsCard, MiniStatsRow, RecentShops, FloatingActionButton } from '@/components/home';
 import { useAuth } from '@/contexts/AuthContext';
@@ -135,24 +137,23 @@ export default function HomeScreen() {
   const totalFavorites = MOCK_SHOPS.filter((s) => s.isFavorite).length;
 
   return (
-    <View className="flex-1 bg-background-secondary">
-      {/* Header */}
-      <View
-        className="bg-background"
-        style={{ paddingTop: insets.top }}>
+    <LinearGradient
+      colors={['#F5F5F7', '#FFFFFF']}
+      locations={[0, 0.4]}
+      style={{ flex: 1 }}>
+      {/* Content - Header scrolls with content */}
+      <ScrollView
+        className="flex-1"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingTop: insets.top, paddingBottom: 100 }}>
+        {/* Header */}
         <Header
           userName={profile?.name}
           userAvatar={profile?.avatarUrl}
         />
-      </View>
 
-      {/* Content */}
-      <ScrollView
-        className="flex-1"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Stats Section */}
-        <View className="bg-background-secondary pt-4">
+        <View className="pt-4">
           {/* Main Stats Card */}
           <StatsCard
             totalShops={MOCK_SHOPS.length}
@@ -170,13 +171,34 @@ export default function HomeScreen() {
         </View>
 
         {/* Recent Shops */}
-        <View className="bg-background-secondary">
+        <View>
           <RecentShops shops={MOCK_SHOPS} />
         </View>
       </ScrollView>
 
+      {/* Gradient fade for safe area at top */}
+      <LinearGradient
+        colors={[
+          'rgba(255,255,255,0.95)', 
+          'rgba(255,255,255,0.6)', 
+          'rgba(255,255,255,0.0)'
+        ]}
+        locations={[0, 0.35, 0.5]}
+        style={[styles.blurOverlay, { height: insets.top * 2 }]}
+        pointerEvents="none"
+      />
+
       {/* Floating Action Button */}
       <FloatingActionButton />
-    </View>
+    </LinearGradient>
   );
 }
+
+const styles = StyleSheet.create({
+  blurOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+});
