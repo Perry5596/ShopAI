@@ -26,6 +26,7 @@ function dbShopToShop(dbShop: DbShop, products: ProductLink[] = []): Shop {
     updatedAt: dbShop.updated_at,
     isFavorite: dbShop.is_favorite,
     status: dbShop.status,
+    savings: dbShop.savings ?? 0,
     products,
     recommendation,
   };
@@ -54,6 +55,9 @@ function dbProfileToUserProfile(dbProfile: DbProfile): UserProfile {
     username: dbProfile.username ?? undefined,
     avatarUrl: dbProfile.avatar_url ?? undefined,
     isPremium: dbProfile.is_premium,
+    totalShops: dbProfile.total_shops ?? 0,
+    totalProducts: dbProfile.total_products ?? 0,
+    totalSavings: dbProfile.total_savings ?? 0,
     createdAt: dbProfile.created_at,
     updatedAt: dbProfile.updated_at,
   };
@@ -102,6 +106,37 @@ export const profileService = {
 
     if (error) throw error;
     return dbProfileToUserProfile(data as DbProfile);
+  },
+
+  /**
+   * Increment lifetime stats for a user (these only go up, never down)
+   * Called when a shop is completed successfully
+   */
+  async incrementStats(
+    userId: string,
+    stats: { shops?: number; products?: number; savings?: number }
+  ): Promise<void> {
+    // Use RPC or raw SQL to atomically increment
+    // For now, we'll fetch and update (not ideal but works)
+    const { data: profile, error: fetchError } = await supabase
+      .from('profiles')
+      .select('total_shops, total_products, total_savings')
+      .eq('id', userId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({
+        total_shops: (profile?.total_shops ?? 0) + (stats.shops ?? 0),
+        total_products: (profile?.total_products ?? 0) + (stats.products ?? 0),
+        total_savings: (profile?.total_savings ?? 0) + (stats.savings ?? 0),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
+
+    if (updateError) throw updateError;
   },
 };
 
@@ -203,6 +238,7 @@ export const shopService = {
       isFavorite: boolean;
       status: ShopStatus;
       imageUrl: string;
+      savings: number;
     }>
   ): Promise<Shop> {
     const updateData: Record<string, unknown> = {
@@ -214,6 +250,7 @@ export const shopService = {
     if (updates.isFavorite !== undefined) updateData.is_favorite = updates.isFavorite;
     if (updates.status !== undefined) updateData.status = updates.status;
     if (updates.imageUrl !== undefined) updateData.image_url = updates.imageUrl;
+    if (updates.savings !== undefined) updateData.savings = updates.savings;
 
     const { data, error } = await supabase
       .from('shops')

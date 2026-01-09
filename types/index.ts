@@ -10,6 +10,10 @@ export interface UserProfile {
   username?: string;
   avatarUrl?: string;
   isPremium: boolean;
+  // Lifetime stats (only go up, never down)
+  totalShops: number;
+  totalProducts: number;
+  totalSavings: number; // in cents to avoid floating point issues
   createdAt?: string;
   updatedAt?: string;
 }
@@ -31,6 +35,7 @@ export interface Shop {
   updatedAt: string;
   isFavorite: boolean;
   status: ShopStatus;
+  savings: number; // in cents (average price - lowest price)
   products: ProductLink[];
   recommendation?: ProductLink;
 }
@@ -65,6 +70,7 @@ export interface DbShop {
   description: string | null;
   is_favorite: boolean;
   status: ShopStatus;
+  savings: number;
   created_at: string;
   updated_at: string;
 }
@@ -90,6 +96,9 @@ export interface DbProfile {
   username: string | null;
   avatar_url: string | null;
   is_premium: boolean;
+  total_shops: number;
+  total_products: number;
+  total_savings: number;
   created_at: string;
   updated_at: string;
 }

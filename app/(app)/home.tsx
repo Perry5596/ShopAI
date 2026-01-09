@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { View, ScrollView, StyleSheet, ActivityIndicator, Text } from 'react-native';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { View, ScrollView, StyleSheet, ActivityIndicator, Text, RefreshControl } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Header, StatsCard, MiniStatsRow, RecentShops, FloatingActionButton } from '@/components/home';
@@ -8,8 +8,12 @@ import { useShopStore } from '@/stores';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { profile, user } = useAuth();
+  const { profile, user, refreshProfile } = useAuth();
   const { shops, isLoading, error, fetchShops } = useShopStore();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Track which shops were processing to detect completion
+  const previousProcessingShopsRef = useRef<Set<string>>(new Set());
 
   // Fetch shops when user is available
   useEffect(() => {
@@ -18,15 +22,61 @@ export default function HomeScreen() {
     }
   }, [user?.id, fetchShops]);
 
-  // Calculate stats from actual shops
-  const completedShops = shops.filter((s) => s.status === 'completed');
-  const totalProducts = completedShops.reduce((acc, s) => acc + s.products.length, 0);
+  // Detect when processing shops become completed and refresh profile
+  useEffect(() => {
+    const currentProcessingShops = new Set(
+      shops.filter((s) => s.status === 'processing').map((s) => s.id)
+    );
+    const previousProcessingShops = previousProcessingShopsRef.current;
+
+    // Check if any previously processing shop is now completed
+    let hasNewlyCompleted = false;
+    previousProcessingShops.forEach((shopId) => {
+      const shop = shops.find((s) => s.id === shopId);
+      if (shop && shop.status === 'completed') {
+        hasNewlyCompleted = true;
+      }
+    });
+
+    // If a shop just completed, refresh the profile to get updated stats
+    if (hasNewlyCompleted) {
+      refreshProfile();
+    }
+
+    // Update the ref for next comparison
+    previousProcessingShopsRef.current = currentProcessingShops;
+  }, [shops, refreshProfile]);
+
+  // Pull-to-refresh handler
+  const handleRefresh = useCallback(async () => {
+    if (!user?.id) return;
+    
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        fetchShops(user.id),
+        refreshProfile(),
+      ]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [user?.id, fetchShops, refreshProfile]);
+
+  // Use lifetime stats from profile (these only go up, never down)
+  const totalShops = profile?.totalShops ?? 0;
+  const totalProducts = profile?.totalProducts ?? 0;
+  const totalSavings = profile?.totalSavings ?? 0; // in cents
+
+  // Favorites can go up/down, so calculate from current shops
   const totalFavorites = shops.filter((s) => s.isFavorite).length;
 
-  // Calculate shops created this week
+  // Calculate shops created this week (for display purposes)
   const oneWeekAgo = new Date();
   oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
   const thisWeek = shops.filter((s) => new Date(s.createdAt) >= oneWeekAgo).length;
+
+  // Convert savings from cents to dollars
+  const savingsInDollars = Math.round(totalSavings / 100);
 
   return (
     <LinearGradient
@@ -37,7 +87,15 @@ export default function HomeScreen() {
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingTop: insets.top, paddingBottom: 100 }}>
+        contentContainerStyle={{ paddingTop: insets.top, paddingBottom: 100 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor="#000000"
+            progressViewOffset={insets.top}
+          />
+        }>
         {/* Header */}
         <Header
           userName={profile?.name}
@@ -48,7 +106,7 @@ export default function HomeScreen() {
         <View className="pt-4">
           {/* Main Stats Card */}
           <StatsCard
-            totalShops={shops.length}
+            totalShops={totalShops}
             totalProducts={totalProducts}
             favorites={totalFavorites}
             thisWeek={thisWeek}
@@ -58,7 +116,7 @@ export default function HomeScreen() {
           <MiniStatsRow
             favorites={totalFavorites}
             products={totalProducts}
-            savings={47}
+            savings={savingsInDollars}
           />
         </View>
 

@@ -1,6 +1,28 @@
 import { create } from 'zustand';
-import { shopService, productService } from '@/utils/supabase-service';
-import type { Shop, ProductLink, SnapResult } from '@/types';
+import { shopService, productService, profileService } from '@/utils/supabase-service';
+import type { Shop, SnapResult } from '@/types';
+
+/**
+ * Parse a price string like "$129.99" to cents (12999)
+ */
+function parsePriceToCents(priceStr: string): number {
+  // Remove currency symbols and parse
+  const cleaned = priceStr.replace(/[^0-9.]/g, '');
+  const parsed = parseFloat(cleaned);
+  if (isNaN(parsed)) return 0;
+  return Math.round(parsed * 100);
+}
+
+/**
+ * Calculate savings: average price - lowest price (in cents)
+ */
+function calculateSavings(prices: number[]): number {
+  if (prices.length < 2) return 0;
+  const total = prices.reduce((sum, p) => sum + p, 0);
+  const average = total / prices.length;
+  const lowest = Math.min(...prices);
+  return Math.max(0, Math.round(average - lowest));
+}
 
 interface ShopState {
   shops: Shop[];
@@ -16,7 +38,7 @@ interface ShopState {
   toggleFavorite: (id: string) => Promise<void>;
 
   // Process shop results (called when AI/dummy data returns)
-  completeShopProcessing: (shopId: string, result: SnapResult) => Promise<void>;
+  completeShopProcessing: (shopId: string, userId: string, result: SnapResult) => Promise<void>;
   failShopProcessing: (shopId: string, error: string) => Promise<void>;
 
   // Reset state
@@ -107,7 +129,7 @@ export const useShopStore = create<ShopState>((set, get) => ({
     }
   },
 
-  completeShopProcessing: async (shopId: string, result: SnapResult) => {
+  completeShopProcessing: async (shopId: string, userId: string, result: SnapResult) => {
     try {
       // Create products in database with recommended flag
       const productsToCreate = result.products.map((p, index) => ({
@@ -117,11 +139,23 @@ export const useShopStore = create<ShopState>((set, get) => ({
 
       const createdProducts = await productService.createProducts(shopId, productsToCreate);
 
-      // Update shop in database
+      // Calculate savings (average - lowest price in cents)
+      const prices = result.products.map((p) => parsePriceToCents(p.price));
+      const savings = calculateSavings(prices);
+
+      // Update shop in database with savings
       await shopService.updateShop(shopId, {
         title: result.title,
         description: result.description,
         status: 'completed',
+        savings,
+      });
+
+      // Increment user's lifetime stats
+      await profileService.incrementStats(userId, {
+        shops: 1,
+        products: createdProducts.length,
+        savings,
       });
 
       // Find the recommendation
@@ -136,6 +170,7 @@ export const useShopStore = create<ShopState>((set, get) => ({
                 title: result.title,
                 description: result.description,
                 status: 'completed' as const,
+                savings,
                 products: createdProducts,
                 recommendation,
                 updatedAt: new Date().toISOString(),

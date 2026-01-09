@@ -1,4 +1,4 @@
-import { View, Text, Alert } from 'react-native';
+import { View, Text, Alert, Image, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView as ExpoCameraView, useCameraPermissions } from 'expo-camera';
@@ -18,6 +18,7 @@ export default function SnapScreen() {
   const [isFlashOn, setIsFlashOn] = useState(false);
   const [zoom, setZoom] = useState<0.5 | 1>(1);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
 
   const { captureAndProcess } = useSnapStore();
   const { user, profile } = useAuth();
@@ -91,12 +92,15 @@ export default function SnapScreen() {
       });
       
       if (photo?.uri) {
+        // Immediately show the captured image (freeze the camera)
+        setCapturedImageUri(photo.uri);
         await processImage(photo.uri);
       }
     } catch (error) {
       console.error('Failed to capture image:', error);
       Alert.alert('Error', 'Failed to capture image. Please try again.');
       setIsCapturing(false);
+      setCapturedImageUri(null);
     }
   };
 
@@ -109,6 +113,7 @@ export default function SnapScreen() {
 
     if (!result.canceled && result.assets[0]) {
       setIsCapturing(true);
+      setCapturedImageUri(result.assets[0].uri);
       await processImage(result.assets[0].uri);
     }
   };
@@ -131,55 +136,79 @@ export default function SnapScreen() {
 
   return (
     <View className="flex-1 bg-camera-bg">
-      {/* Camera View */}
-      <CameraView
-        ref={cameraRef}
-        facing="back"
-        zoomLevel={zoom}
-        enableTorch={isFlashOn}
-      />
-
-      {/* Top Controls */}
-      <View
-        className="absolute left-0 right-0 flex-row items-center justify-between px-4"
-        style={{ top: insets.top + 8 }}>
-        {/* Close Button */}
-        <IconButton
-          icon="close"
-          variant="ghost"
-          size="lg"
-          iconColor="#FFFFFF"
-          onPress={() => router.back()}
-          className="bg-black/30"
+      {/* Show captured image when processing, otherwise show live camera */}
+      {capturedImageUri ? (
+        <View className="flex-1">
+          <Image
+            source={{ uri: capturedImageUri }}
+            className="flex-1"
+            resizeMode="cover"
+          />
+          {/* Processing overlay */}
+          <View className="absolute inset-0 bg-black/50 items-center justify-center">
+            <ActivityIndicator size="large" color="#FFFFFF" />
+            <Text className="text-white text-[18px] font-semibold mt-4">
+              Processing...
+            </Text>
+            <Text className="text-white/70 text-[14px] mt-2">
+              Finding the best deals for you
+            </Text>
+          </View>
+        </View>
+      ) : (
+        <CameraView
+          ref={cameraRef}
+          facing="back"
+          zoomLevel={zoom}
+          enableTorch={isFlashOn}
         />
+      )}
 
-        {/* Help Button */}
-        <IconButton
-          icon="help-circle-outline"
-          variant="ghost"
-          size="lg"
-          iconColor="#FFFFFF"
-          onPress={handleHelp}
-          className="bg-black/30"
-        />
-      </View>
+      {/* Top Controls - only show when not processing */}
+      {!capturedImageUri && (
+        <View
+          className="absolute left-0 right-0 flex-row items-center justify-between px-4"
+          style={{ top: insets.top + 8 }}>
+          {/* Close Button */}
+          <IconButton
+            icon="close"
+            variant="ghost"
+            size="lg"
+            iconColor="#FFFFFF"
+            onPress={() => router.back()}
+            className="bg-black/30"
+          />
 
-      {/* Bottom Controls */}
-      <View
-        className="absolute left-0 right-0"
-        style={{ bottom: insets.bottom + 16 }}>
-        {/* Zoom Controls */}
-        <ZoomControls currentZoom={zoom} onZoomChange={handleZoomChange} />
+          {/* Help Button */}
+          <IconButton
+            icon="help-circle-outline"
+            variant="ghost"
+            size="lg"
+            iconColor="#FFFFFF"
+            onPress={handleHelp}
+            className="bg-black/30"
+          />
+        </View>
+      )}
 
-        {/* Camera Controls */}
-        <CameraControls
-          isFlashOn={isFlashOn}
-          onFlashToggle={handleFlashToggle}
-          onCapture={handleCapture}
-          onGalleryOpen={handleGalleryOpen}
-          isCapturing={isCapturing}
-        />
-      </View>
+      {/* Bottom Controls - only show when not processing */}
+      {!capturedImageUri && (
+        <View
+          className="absolute left-0 right-0"
+          style={{ bottom: insets.bottom + 16 }}>
+          {/* Zoom Controls */}
+          <ZoomControls currentZoom={zoom} onZoomChange={handleZoomChange} />
+
+          {/* Camera Controls */}
+          <CameraControls
+            isFlashOn={isFlashOn}
+            onFlashToggle={handleFlashToggle}
+            onCapture={handleCapture}
+            onGalleryOpen={handleGalleryOpen}
+            isCapturing={isCapturing}
+          />
+        </View>
+      )}
     </View>
   );
 }

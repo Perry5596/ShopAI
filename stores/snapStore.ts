@@ -75,7 +75,7 @@ export const useSnapStore = create<SnapState>((set, get) => ({
       set({ isUploading: false, isProcessing: true });
 
       // Step 5: Process image in background (don't await - let it run async)
-      processImageInBackground(shopId, imageUrl);
+      processImageInBackground(shopId, userId, imageUrl);
 
       set({ isCapturing: false, isProcessing: false });
 
@@ -107,15 +107,15 @@ export const useSnapStore = create<SnapState>((set, get) => ({
  * Process image in background using mock AI service.
  * This runs asynchronously after the user has navigated back to home.
  */
-async function processImageInBackground(shopId: string, imageUrl: string): Promise<void> {
+async function processImageInBackground(shopId: string, userId: string, imageUrl: string): Promise<void> {
   const shopStore = useShopStore.getState();
 
   try {
     // Call the mock AI service (will be replaced with real AI later)
     const result = await analyzeImage(imageUrl);
 
-    // Complete the shop processing with the results
-    await shopStore.completeShopProcessing(shopId, result);
+    // Complete the shop processing with the results (also increments user stats)
+    await shopStore.completeShopProcessing(shopId, userId, result);
   } catch (error) {
     console.error('Background image processing failed:', error);
     await shopStore.failShopProcessing(

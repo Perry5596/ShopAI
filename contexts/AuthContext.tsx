@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import { makeRedirectUri } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '@/utils/supabase';
+import { profileService } from '@/utils/supabase-service';
 import type { Session, User } from '@supabase/supabase-js';
 import type { UserProfile } from '@/types';
 
@@ -17,12 +18,13 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Extract user profile from Supabase user metadata
-function extractUserProfile(user: User | null): UserProfile | null {
+// Extract user profile from Supabase user metadata (fallback when DB profile doesn't exist)
+function extractUserProfileFromMetadata(user: User | null): UserProfile | null {
   if (!user) return null;
 
   const metadata = user.user_metadata || {};
@@ -32,7 +34,10 @@ function extractUserProfile(user: User | null): UserProfile | null {
     email: user.email || metadata.email || '',
     name: metadata.full_name || metadata.name || 'User',
     avatarUrl: metadata.avatar_url || metadata.picture || undefined,
-    isPremium: false, // Default to false, can be updated from database
+    isPremium: false,
+    totalShops: 0,
+    totalProducts: 0,
+    totalSavings: 0,
   };
 }
 
@@ -42,13 +47,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Fetch profile from database
+  const fetchProfile = useCallback(async (userId: string, authUser: User) => {
+    try {
+      const dbProfile = await profileService.getProfile(userId);
+      if (dbProfile) {
+        setProfile(dbProfile);
+      } else {
+        // Fallback to metadata if no DB profile exists yet
+        setProfile(extractUserProfileFromMetadata(authUser));
+      }
+    } catch (error) {
+      console.error('Failed to fetch profile:', error);
+      // Fallback to metadata on error
+      setProfile(extractUserProfileFromMetadata(authUser));
+    }
+  }, []);
+
+  // Public method to refresh profile (e.g., after stats update)
+  const refreshProfile = useCallback(async () => {
+    if (user?.id) {
+      await fetchProfile(user.id, user);
+    }
+  }, [user, fetchProfile]);
+
   // Initialize auth state
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      setProfile(extractUserProfile(session?.user ?? null));
+      if (session?.user) {
+        await fetchProfile(session.user.id, session.user);
+      }
       setIsLoading(false);
     });
 
@@ -58,7 +89,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('Auth state changed:', event);
         setSession(session);
         setUser(session?.user ?? null);
-        setProfile(extractUserProfile(session?.user ?? null));
+        if (session?.user) {
+          await fetchProfile(session.user.id, session.user);
+        } else {
+          setProfile(null);
+        }
         setIsLoading(false);
       }
     );
@@ -66,7 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [fetchProfile]);
 
   // Sign in with Google
   const signInWithGoogle = useCallback(async () => {
@@ -172,6 +207,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signInWithGoogle,
     signInWithApple,
     signOut,
+    refreshProfile,
   };
 
   return (
