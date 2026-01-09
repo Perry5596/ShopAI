@@ -7,6 +7,8 @@ import { useState, useRef } from 'react';
 import { IconButton } from '@/components/ui/IconButton';
 import { Button } from '@/components/ui/Button';
 import { CameraView, CameraControls, ZoomControls } from '@/components/snap';
+import { useSnapStore } from '@/stores';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function SnapScreen() {
   const insets = useSafeAreaInsets();
@@ -16,6 +18,9 @@ export default function SnapScreen() {
   const [isFlashOn, setIsFlashOn] = useState(false);
   const [zoom, setZoom] = useState<0.5 | 1>(1);
   const [isCapturing, setIsCapturing] = useState(false);
+
+  const { captureAndProcess } = useSnapStore();
+  const { user, profile } = useAuth();
 
   // Handle permissions
   if (!permission) {
@@ -51,6 +56,30 @@ export default function SnapScreen() {
     );
   }
 
+  const processImage = async (uri: string) => {
+    if (!user?.id) {
+      Alert.alert('Error', 'You must be logged in to capture images.');
+      return;
+    }
+
+    try {
+      // Start capture and process - this creates the shop in processing state
+      // and returns immediately, with background processing continuing
+      await captureAndProcess(uri, user.id, profile);
+      
+      // Navigate back to home - the shop will appear in processing state
+      router.back();
+    } catch (error) {
+      console.error('Failed to process image:', error);
+      Alert.alert(
+        'Error',
+        'Failed to process image. Please try again.',
+        [{ text: 'OK' }]
+      );
+      setIsCapturing(false);
+    }
+  };
+
   const handleCapture = async () => {
     if (!cameraRef.current || isCapturing) return;
 
@@ -61,11 +90,11 @@ export default function SnapScreen() {
         base64: false,
       });
       
-      // TODO: Upload image for AI processing
-      // Dismiss the camera modal - home screen is already underneath
-      // The new item will appear in the recent shops list in a loading state
-      router.back();
+      if (photo?.uri) {
+        await processImage(photo.uri);
+      }
     } catch (error) {
+      console.error('Failed to capture image:', error);
       Alert.alert('Error', 'Failed to capture image. Please try again.');
       setIsCapturing(false);
     }
@@ -79,10 +108,8 @@ export default function SnapScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      // TODO: Upload image for AI processing
-      // Dismiss the camera modal - home screen is already underneath
-      // The new item will appear in the recent shops list in a loading state
-      router.back();
+      setIsCapturing(true);
+      await processImage(result.assets[0].uri);
     }
   };
 

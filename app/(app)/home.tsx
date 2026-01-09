@@ -1,140 +1,32 @@
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { useEffect } from 'react';
+import { View, ScrollView, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Header, StatsCard, MiniStatsRow, RecentShops, FloatingActionButton } from '@/components/home';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Shop } from '@/types';
-
-const MOCK_SHOPS: Shop[] = [
-  {
-    id: '1',
-    userId: 'user1',
-    imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400',
-    title: 'Nike Air Max 90',
-    description: 'Classic sneakers',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    isFavorite: false,
-    products: [
-      {
-        id: 'p1',
-        shopId: '1',
-        title: 'Nike Air Max 90',
-        price: '$129.99',
-        imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200',
-        affiliateUrl: 'https://nike.com',
-        source: 'Nike',
-        isRecommended: true,
-        rating: 4.8,
-        reviewCount: 2341,
-      },
-      {
-        id: 'p2',
-        shopId: '1',
-        title: 'Nike Air Max 90 Essential',
-        price: '$119.99',
-        imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200',
-        affiliateUrl: 'https://amazon.com',
-        source: 'Amazon',
-        isRecommended: false,
-        rating: 4.5,
-        reviewCount: 892,
-      },
-    ],
-    recommendation: {
-      id: 'p1',
-      shopId: '1',
-      title: 'Nike Air Max 90',
-      price: '$129.99',
-      imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200',
-      affiliateUrl: 'https://nike.com',
-      source: 'Nike',
-      isRecommended: true,
-      rating: 4.8,
-      reviewCount: 2341,
-    },
-  },
-  {
-    id: '2',
-    userId: 'user1',
-    imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400',
-    title: 'Apple Watch Series 9',
-    description: 'Smart watch',
-    createdAt: new Date(Date.now() - 3600000).toISOString(),
-    updatedAt: new Date(Date.now() - 3600000).toISOString(),
-    isFavorite: true,
-    products: [
-      {
-        id: 'p3',
-        shopId: '2',
-        title: 'Apple Watch Series 9 GPS',
-        price: '$399.00',
-        imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200',
-        affiliateUrl: 'https://apple.com',
-        source: 'Apple',
-        isRecommended: true,
-        rating: 4.9,
-        reviewCount: 5621,
-      },
-    ],
-    recommendation: {
-      id: 'p3',
-      shopId: '2',
-      title: 'Apple Watch Series 9 GPS',
-      price: '$399.00',
-      imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200',
-      affiliateUrl: 'https://apple.com',
-      source: 'Apple',
-      isRecommended: true,
-      rating: 4.9,
-      reviewCount: 5621,
-    },
-  },
-  {
-    id: '3',
-    userId: 'user1',
-    imageUrl: 'https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=400',
-    title: 'Leather Backpack',
-    description: 'Premium leather bag',
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000).toISOString(),
-    isFavorite: false,
-    products: [
-      {
-        id: 'p4',
-        shopId: '3',
-        title: 'Vintage Leather Backpack',
-        price: '$89.99',
-        imageUrl: 'https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=200',
-        affiliateUrl: 'https://amazon.com',
-        source: 'Amazon',
-        isRecommended: true,
-        rating: 4.4,
-        reviewCount: 1205,
-      },
-    ],
-    recommendation: {
-      id: 'p4',
-      shopId: '3',
-      title: 'Vintage Leather Backpack',
-      price: '$89.99',
-      imageUrl: 'https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=200',
-      affiliateUrl: 'https://amazon.com',
-      source: 'Amazon',
-      isRecommended: true,
-      rating: 4.4,
-      reviewCount: 1205,
-    },
-  },
-];
+import { useShopStore } from '@/stores';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
+  const { shops, isLoading, error, fetchShops } = useShopStore();
 
-  const totalProducts = MOCK_SHOPS.reduce((acc, s) => acc + s.products.length, 0);
-  const totalFavorites = MOCK_SHOPS.filter((s) => s.isFavorite).length;
+  // Fetch shops when user is available
+  useEffect(() => {
+    if (user?.id) {
+      fetchShops(user.id);
+    }
+  }, [user?.id, fetchShops]);
+
+  // Calculate stats from actual shops
+  const completedShops = shops.filter((s) => s.status === 'completed');
+  const totalProducts = completedShops.reduce((acc, s) => acc + s.products.length, 0);
+  const totalFavorites = shops.filter((s) => s.isFavorite).length;
+
+  // Calculate shops created this week
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  const thisWeek = shops.filter((s) => new Date(s.createdAt) >= oneWeekAgo).length;
 
   return (
     <LinearGradient
@@ -156,10 +48,10 @@ export default function HomeScreen() {
         <View className="pt-4">
           {/* Main Stats Card */}
           <StatsCard
-            totalShops={MOCK_SHOPS.length}
+            totalShops={shops.length}
             totalProducts={totalProducts}
             favorites={totalFavorites}
-            thisWeek={2}
+            thisWeek={thisWeek}
           />
 
           {/* Mini Stats Row */}
@@ -170,10 +62,31 @@ export default function HomeScreen() {
           />
         </View>
 
+        {/* Loading State */}
+        {isLoading && shops.length === 0 && (
+          <View className="items-center justify-center py-12">
+            <ActivityIndicator size="large" color="#000000" />
+            <Text className="text-[14px] font-inter text-foreground-muted mt-3">
+              Loading your shops...
+            </Text>
+          </View>
+        )}
+
+        {/* Error State */}
+        {error && shops.length === 0 && (
+          <View className="items-center justify-center py-12 px-8">
+            <Text className="text-[16px] font-inter-medium text-red-500 text-center">
+              {error}
+            </Text>
+          </View>
+        )}
+
         {/* Recent Shops */}
-        <View>
-          <RecentShops shops={MOCK_SHOPS} />
-        </View>
+        {!isLoading && (
+          <View>
+            <RecentShops shops={shops} />
+          </View>
+        )}
       </ScrollView>
 
       {/* Gradient fade for safe area at top */}

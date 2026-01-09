@@ -1,91 +1,30 @@
-import { View, Text, ScrollView, TouchableOpacity, Alert, Share } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Share, ActivityIndicator } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { ShopHeader, ProductImage, ProductLinks, ActionButtons } from '@/components/shop';
 import { Badge } from '@/components/ui/Badge';
-import type { Shop, ProductLink } from '@/types';
-
-// Mock data - in a real app this would come from an API
-const MOCK_SHOP: Shop = {
-  id: '1',
-  userId: 'user1',
-  imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800',
-  title: 'Nike Air Max 90',
-  description: 'Classic sneakers spotted',
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-  isFavorite: false,
-  products: [
-    {
-      id: 'p1',
-      shopId: '1',
-      title: 'Nike Air Max 90',
-      price: '$129.99',
-      imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200',
-      affiliateUrl: 'https://nike.com',
-      source: 'Nike',
-      isRecommended: true,
-      rating: 4.8,
-      reviewCount: 2341,
-    },
-    {
-      id: 'p2',
-      shopId: '1',
-      title: 'Nike Air Max 90 Essential',
-      price: '$119.99',
-      imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200',
-      affiliateUrl: 'https://amazon.com',
-      source: 'Amazon',
-      isRecommended: false,
-      rating: 4.5,
-      reviewCount: 892,
-    },
-    {
-      id: 'p3',
-      shopId: '1',
-      title: 'Nike Air Max 90 Premium',
-      price: '$149.99',
-      imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200',
-      affiliateUrl: 'https://footlocker.com',
-      source: 'Foot Locker',
-      isRecommended: false,
-      rating: 4.7,
-      reviewCount: 456,
-    },
-    {
-      id: 'p4',
-      shopId: '1',
-      title: 'Nike Air Max 90 SE',
-      price: '$139.99',
-      imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200',
-      affiliateUrl: 'https://finishline.com',
-      source: 'Finish Line',
-      isRecommended: false,
-      rating: 4.6,
-      reviewCount: 234,
-    },
-  ],
-  recommendation: {
-    id: 'p1',
-    shopId: '1',
-    title: 'Nike Air Max 90',
-    price: '$129.99',
-    imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200',
-    affiliateUrl: 'https://nike.com',
-    source: 'Nike',
-    isRecommended: true,
-    rating: 4.8,
-    reviewCount: 2341,
-  },
-};
+import { useShopStore } from '@/stores';
+import { useAuth } from '@/contexts/AuthContext';
+import type { Shop } from '@/types';
 
 export default function ShopDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
-  const [shop, setShop] = useState<Shop>(MOCK_SHOP);
-  const [isFavorite, setIsFavorite] = useState(shop.isFavorite);
+  const { user } = useAuth();
+  const { shops, getShopById, toggleFavorite, deleteShop } = useShopStore();
+  
+  // Get shop from store - this will update when the store updates
+  const shop = getShopById(id || '');
+  const [isFavorite, setIsFavorite] = useState(shop?.isFavorite ?? false);
+
+  // Update local favorite state when shop changes
+  useEffect(() => {
+    if (shop) {
+      setIsFavorite(shop.isFavorite);
+    }
+  }, [shop?.isFavorite]);
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -97,6 +36,7 @@ export default function ShopDetailScreen() {
   };
 
   const handleShare = async () => {
+    if (!shop) return;
     try {
       await Share.share({
         message: `Check out this ${shop.title} I found on Shop AI!`,
@@ -108,25 +48,128 @@ export default function ShopDetailScreen() {
   };
 
   const handleMenu = () => {
+    if (!shop || !user?.id) return;
     Alert.alert(
       'Options',
       '',
       [
         { text: 'Edit Title', onPress: () => Alert.alert('Edit Title') },
-        { text: 'Delete Shop', style: 'destructive', onPress: () => router.back() },
+        { 
+          text: 'Delete Shop', 
+          style: 'destructive', 
+          onPress: async () => {
+            try {
+              await deleteShop(shop.id, user.id);
+              router.back();
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete shop');
+            }
+          }
+        },
         { text: 'Cancel', style: 'cancel' },
       ]
     );
   };
 
-  const handleFavoriteToggle = () => {
+  const handleFavoriteToggle = async () => {
+    if (!shop) return;
+    
+    // Optimistic update
     setIsFavorite(!isFavorite);
+    
+    try {
+      await toggleFavorite(shop.id);
+    } catch (error) {
+      // Revert on error
+      setIsFavorite(isFavorite);
+      Alert.alert('Error', 'Failed to update favorite');
+    }
   };
 
   const handleDone = () => {
     router.back();
   };
 
+  // Shop not found
+  if (!shop) {
+    return (
+      <View className="flex-1 bg-background items-center justify-center">
+        <Ionicons name="alert-circle-outline" size={48} color="#9CA3AF" />
+        <Text className="text-[16px] font-inter-medium text-foreground-muted mt-4">
+          Shop not found
+        </Text>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          className="mt-4 px-6 py-3 bg-foreground rounded-full">
+          <Text className="text-background font-inter-medium">Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Processing state
+  if (shop.status === 'processing') {
+    return (
+      <View className="flex-1 bg-background">
+        <ShopHeader onShare={handleShare} onMenu={handleMenu} />
+        
+        <ScrollView
+          className="flex-1"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 120 }}>
+          <ProductImage imageUrl={shop.imageUrl} />
+          
+          <View className="bg-background rounded-t-3xl -mt-6 pt-5 px-5">
+            <View className="items-center py-8">
+              <ActivityIndicator size="large" color="#000000" />
+              <Text className="text-[18px] font-inter-semibold text-foreground mt-4">
+                Analyzing your image...
+              </Text>
+              <Text className="text-[14px] font-inter text-foreground-muted mt-2 text-center">
+                Finding the best products and deals for you
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
+        
+        <ActionButtons shopId={shop.id} onDone={handleDone} />
+      </View>
+    );
+  }
+
+  // Failed state
+  if (shop.status === 'failed') {
+    return (
+      <View className="flex-1 bg-background">
+        <ShopHeader onShare={handleShare} onMenu={handleMenu} />
+        
+        <ScrollView
+          className="flex-1"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 120 }}>
+          <ProductImage imageUrl={shop.imageUrl} />
+          
+          <View className="bg-background rounded-t-3xl -mt-6 pt-5 px-5">
+            <View className="items-center py-8">
+              <View className="w-16 h-16 rounded-full bg-red-100 items-center justify-center mb-4">
+                <Ionicons name="alert-circle" size={32} color="#EF4444" />
+              </View>
+              <Text className="text-[18px] font-inter-semibold text-foreground">
+                Analysis Failed
+              </Text>
+              <Text className="text-[14px] font-inter text-foreground-muted mt-2 text-center px-4">
+                {shop.description || 'We couldn\'t analyze this image. Please try again.'}
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
+        
+        <ActionButtons shopId={shop.id} onDone={handleDone} />
+      </View>
+    );
+  }
+
+  // Completed state - normal view
   return (
     <View className="flex-1 bg-background">
       {/* Header */}

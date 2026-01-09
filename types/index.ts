@@ -11,10 +11,14 @@ export interface UserProfile {
   avatarUrl?: string;
   isPremium: boolean;
   createdAt?: string;
+  updatedAt?: string;
 }
 
 // Legacy User type (alias for backwards compatibility)
 export type User = UserProfile;
+
+// Shop status type
+export type ShopStatus = 'processing' | 'completed' | 'failed';
 
 // Shop/Scan result types
 export interface Shop {
@@ -26,6 +30,7 @@ export interface Shop {
   createdAt: string;
   updatedAt: string;
   isFavorite: boolean;
+  status: ShopStatus;
   products: ProductLink[];
   recommendation?: ProductLink;
 }
@@ -41,6 +46,52 @@ export interface ProductLink {
   isRecommended: boolean;
   rating?: number;
   reviewCount?: number;
+}
+
+// AI processing result schema (for snap feature)
+export interface SnapResult {
+  title: string;
+  description?: string;
+  products: Omit<ProductLink, 'id' | 'shopId'>[];
+  recommendedIndex?: number; // index of recommended product in products array
+}
+
+// Database row types (snake_case from Supabase)
+export interface DbShop {
+  id: string;
+  user_id: string;
+  image_url: string;
+  title: string;
+  description: string | null;
+  is_favorite: boolean;
+  status: ShopStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DbProduct {
+  id: string;
+  shop_id: string;
+  title: string;
+  price: string;
+  image_url: string | null;
+  affiliate_url: string;
+  source: string;
+  is_recommended: boolean;
+  rating: number | null;
+  review_count: number | null;
+  created_at: string;
+}
+
+export interface DbProfile {
+  id: string;
+  email: string | null;
+  name: string | null;
+  username: string | null;
+  avatar_url: string | null;
+  is_premium: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 // Settings types

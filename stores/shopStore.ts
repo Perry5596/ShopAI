@@ -1,0 +1,180 @@
+import { create } from 'zustand';
+import { shopService, productService } from '@/utils/supabase-service';
+import type { Shop, ProductLink, SnapResult } from '@/types';
+
+interface ShopState {
+  shops: Shop[];
+  isLoading: boolean;
+  error: string | null;
+
+  // Actions
+  fetchShops: (userId: string) => Promise<void>;
+  getShopById: (id: string) => Shop | undefined;
+  addShop: (shop: Shop) => void;
+  updateShop: (id: string, updates: Partial<Shop>) => void;
+  deleteShop: (id: string, userId: string) => Promise<void>;
+  toggleFavorite: (id: string) => Promise<void>;
+
+  // Process shop results (called when AI/dummy data returns)
+  completeShopProcessing: (shopId: string, result: SnapResult) => Promise<void>;
+  failShopProcessing: (shopId: string, error: string) => Promise<void>;
+
+  // Reset state
+  reset: () => void;
+}
+
+export const useShopStore = create<ShopState>((set, get) => ({
+  shops: [],
+  isLoading: false,
+  error: null,
+
+  fetchShops: async (userId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const shops = await shopService.fetchUserShops(userId);
+      set({ shops, isLoading: false });
+    } catch (error) {
+      console.error('Failed to fetch shops:', error);
+      set({
+        error: error instanceof Error ? error.message : 'Failed to fetch shops',
+        isLoading: false,
+      });
+    }
+  },
+
+  getShopById: (id: string) => {
+    return get().shops.find((shop) => shop.id === id);
+  },
+
+  addShop: (shop: Shop) => {
+    set((state) => ({
+      shops: [shop, ...state.shops],
+    }));
+  },
+
+  updateShop: (id: string, updates: Partial<Shop>) => {
+    set((state) => ({
+      shops: state.shops.map((shop) =>
+        shop.id === id ? { ...shop, ...updates, updatedAt: new Date().toISOString() } : shop
+      ),
+    }));
+  },
+
+  deleteShop: async (id: string, userId: string) => {
+    try {
+      // Remove from local state immediately for responsiveness
+      set((state) => ({
+        shops: state.shops.filter((shop) => shop.id !== id),
+      }));
+
+      // Delete from database
+      await shopService.deleteShop(id);
+
+      // Note: Storage cleanup would be handled here if needed
+      // await storageService.deleteShopImage(userId, id);
+    } catch (error) {
+      console.error('Failed to delete shop:', error);
+      // Re-fetch shops to restore state on error
+      get().fetchShops(userId);
+      throw error;
+    }
+  },
+
+  toggleFavorite: async (id: string) => {
+    const shop = get().getShopById(id);
+    if (!shop) return;
+
+    const newIsFavorite = !shop.isFavorite;
+
+    // Optimistic update
+    set((state) => ({
+      shops: state.shops.map((s) =>
+        s.id === id ? { ...s, isFavorite: newIsFavorite } : s
+      ),
+    }));
+
+    try {
+      await shopService.updateShop(id, { isFavorite: newIsFavorite });
+    } catch (error) {
+      // Revert on error
+      set((state) => ({
+        shops: state.shops.map((s) =>
+          s.id === id ? { ...s, isFavorite: !newIsFavorite } : s
+        ),
+      }));
+      console.error('Failed to toggle favorite:', error);
+      throw error;
+    }
+  },
+
+  completeShopProcessing: async (shopId: string, result: SnapResult) => {
+    try {
+      // Create products in database with recommended flag
+      const productsToCreate = result.products.map((p, index) => ({
+        ...p,
+        isRecommended: index === result.recommendedIndex,
+      }));
+
+      const createdProducts = await productService.createProducts(shopId, productsToCreate);
+
+      // Update shop in database
+      await shopService.updateShop(shopId, {
+        title: result.title,
+        description: result.description,
+        status: 'completed',
+      });
+
+      // Find the recommendation
+      const recommendation = createdProducts.find((p) => p.isRecommended);
+
+      // Update local state
+      set((state) => ({
+        shops: state.shops.map((shop) =>
+          shop.id === shopId
+            ? {
+                ...shop,
+                title: result.title,
+                description: result.description,
+                status: 'completed' as const,
+                products: createdProducts,
+                recommendation,
+                updatedAt: new Date().toISOString(),
+              }
+            : shop
+        ),
+      }));
+    } catch (error) {
+      console.error('Failed to complete shop processing:', error);
+      // Mark as failed if we can't save the results
+      await get().failShopProcessing(
+        shopId,
+        error instanceof Error ? error.message : 'Failed to save results'
+      );
+    }
+  },
+
+  failShopProcessing: async (shopId: string, errorMessage: string) => {
+    try {
+      await shopService.updateShop(shopId, { status: 'failed' });
+    } catch (error) {
+      console.error('Failed to update shop status to failed:', error);
+    }
+
+    set((state) => ({
+      shops: state.shops.map((shop) =>
+        shop.id === shopId
+          ? {
+              ...shop,
+              status: 'failed' as const,
+              description: errorMessage,
+              updatedAt: new Date().toISOString(),
+            }
+          : shop
+      ),
+    }));
+  },
+
+  reset: () => {
+    set({ shops: [], isLoading: false, error: null });
+  },
+}));
