@@ -5,6 +5,8 @@ import type { Shop } from '@/types';
 
 interface RecentShopsProps {
   shops: Shop[];
+  isLoadingMore?: boolean;
+  hasMore?: boolean;
 }
 
 function ShopItem({ shop }: { shop: Shop }) {
@@ -136,7 +138,7 @@ function ShopItem({ shop }: { shop: Shop }) {
   );
 }
 
-export function RecentShops({ shops }: RecentShopsProps) {
+export function RecentShops({ shops, isLoadingMore, hasMore }: RecentShopsProps) {
   if (shops.length === 0) {
     return (
       <View className="items-center justify-center py-12">
@@ -160,6 +162,25 @@ export function RecentShops({ shops }: RecentShopsProps) {
         {shops.map((shop) => (
           <ShopItem key={shop.id} shop={shop} />
         ))}
+        
+        {/* Loading more indicator */}
+        {isLoadingMore && (
+          <View className="items-center py-4">
+            <ActivityIndicator size="small" color="#000000" />
+            <Text className="text-[13px] font-inter text-foreground-muted mt-2">
+              Loading more...
+            </Text>
+          </View>
+        )}
+        
+        {/* End of list indicator */}
+        {!hasMore && shops.length > 0 && (
+          <View className="items-center py-4">
+            <Text className="text-[13px] font-inter text-foreground-subtle">
+              You&apos;ve seen all your shops
+            </Text>
+          </View>
+        )}
       </View>
     </View>
   );

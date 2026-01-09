@@ -145,19 +145,35 @@ export const profileService = {
 // ============================================================================
 
 export const shopService = {
-  async fetchUserShops(userId: string): Promise<Shop[]> {
-    // Fetch shops
+  /**
+   * Fetch user shops with pagination support
+   * @param userId - User ID to fetch shops for
+   * @param limit - Number of shops to fetch (default 8)
+   * @param offset - Number of shops to skip (default 0)
+   * @returns Object containing shops array and hasMore boolean
+   */
+  async fetchUserShops(
+    userId: string,
+    limit = 8,
+    offset = 0
+  ): Promise<{ shops: Shop[]; hasMore: boolean }> {
+    // Fetch shops with limit + 1 to check if there are more
     const { data: shopsData, error: shopsError } = await supabase
       .from('shops')
       .select('*')
       .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit); // Fetch limit + 1 to check hasMore
 
     if (shopsError) throw shopsError;
-    if (!shopsData || shopsData.length === 0) return [];
+    if (!shopsData || shopsData.length === 0) return { shops: [], hasMore: false };
+
+    // Check if there are more items
+    const hasMore = shopsData.length > limit;
+    const shopsToProcess = hasMore ? shopsData.slice(0, limit) : shopsData;
 
     // Fetch all products for these shops
-    const shopIds = shopsData.map((s) => s.id);
+    const shopIds = shopsToProcess.map((s) => s.id);
     const { data: productsData, error: productsError } = await supabase
       .from('products')
       .select('*')
@@ -175,9 +191,11 @@ export const shopService = {
     });
 
     // Convert to Shop objects
-    return (shopsData as DbShop[]).map((dbShop) =>
+    const shops = (shopsToProcess as DbShop[]).map((dbShop) =>
       dbShopToShop(dbShop, productsByShopId[dbShop.id] || [])
     );
+
+    return { shops, hasMore };
   },
 
   async getShopById(shopId: string): Promise<Shop | null> {

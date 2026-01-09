@@ -24,13 +24,18 @@ function calculateSavings(prices: number[]): number {
   return Math.max(0, Math.round(average - lowest));
 }
 
+const PAGE_SIZE = 8;
+
 interface ShopState {
   shops: Shop[];
   isLoading: boolean;
+  isLoadingMore: boolean;
+  hasMore: boolean;
   error: string | null;
 
   // Actions
   fetchShops: (userId: string) => Promise<void>;
+  fetchMoreShops: (userId: string) => Promise<void>;
   getShopById: (id: string) => Shop | undefined;
   addShop: (shop: Shop) => void;
   updateShop: (id: string, updates: Partial<Shop>) => void;
@@ -48,19 +53,47 @@ interface ShopState {
 export const useShopStore = create<ShopState>((set, get) => ({
   shops: [],
   isLoading: false,
+  isLoadingMore: false,
+  hasMore: true,
   error: null,
 
   fetchShops: async (userId: string) => {
     set({ isLoading: true, error: null });
     try {
-      const shops = await shopService.fetchUserShops(userId);
-      set({ shops, isLoading: false });
+      const { shops, hasMore } = await shopService.fetchUserShops(userId, PAGE_SIZE, 0);
+      set({ shops, hasMore, isLoading: false });
     } catch (error) {
       console.error('Failed to fetch shops:', error);
       set({
         error: error instanceof Error ? error.message : 'Failed to fetch shops',
         isLoading: false,
+        hasMore: false,
       });
+    }
+  },
+
+  fetchMoreShops: async (userId: string) => {
+    const { isLoadingMore, hasMore, shops } = get();
+    
+    // Don't fetch if already loading or no more items
+    if (isLoadingMore || !hasMore) return;
+
+    set({ isLoadingMore: true });
+    try {
+      const { shops: newShops, hasMore: moreAvailable } = await shopService.fetchUserShops(
+        userId,
+        PAGE_SIZE,
+        shops.length
+      );
+      
+      set({
+        shops: [...shops, ...newShops],
+        hasMore: moreAvailable,
+        isLoadingMore: false,
+      });
+    } catch (error) {
+      console.error('Failed to fetch more shops:', error);
+      set({ isLoadingMore: false });
     }
   },
 
@@ -210,6 +243,6 @@ export const useShopStore = create<ShopState>((set, get) => ({
   },
 
   reset: () => {
-    set({ shops: [], isLoading: false, error: null });
+    set({ shops: [], isLoading: false, isLoadingMore: false, hasMore: true, error: null });
   },
 }));

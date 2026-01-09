@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { View, ScrollView, StyleSheet, ActivityIndicator, Text, RefreshControl } from 'react-native';
+import { View, ScrollView, StyleSheet, ActivityIndicator, Text, RefreshControl, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Header, StatsCard, MiniStatsRow, RecentShops, FloatingActionButton } from '@/components/home';
@@ -9,7 +9,7 @@ import { useShopStore } from '@/stores';
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { profile, user, refreshProfile } = useAuth();
-  const { shops, isLoading, error, fetchShops } = useShopStore();
+  const { shops, isLoading, isLoadingMore, hasMore, error, fetchShops, fetchMoreShops } = useShopStore();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Track which shops were processing to detect completion
@@ -62,6 +62,23 @@ export default function HomeScreen() {
     }
   }, [user?.id, fetchShops, refreshProfile]);
 
+  // Load more shops when scrolling near bottom
+  const handleLoadMore = useCallback(() => {
+    if (!user?.id || isLoadingMore || !hasMore) return;
+    fetchMoreShops(user.id);
+  }, [user?.id, isLoadingMore, hasMore, fetchMoreShops]);
+
+  // Handle scroll to detect when near bottom
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const paddingToBottom = 50;
+    const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+    
+    if (isCloseToBottom && hasMore && !isLoadingMore) {
+      handleLoadMore();
+    }
+  }, [hasMore, isLoadingMore, handleLoadMore]);
+
   // Use lifetime stats from profile (these only go up, never down)
   const totalShops = profile?.totalShops ?? 0;
   const totalProducts = profile?.totalProducts ?? 0;
@@ -88,6 +105,8 @@ export default function HomeScreen() {
         className="flex-1"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingTop: insets.top, paddingBottom: 100 }}
+        onScroll={handleScroll}
+        scrollEventThrottle={400}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -142,7 +161,11 @@ export default function HomeScreen() {
         {/* Recent Shops */}
         {!isLoading && (
           <View>
-            <RecentShops shops={shops} />
+            <RecentShops 
+              shops={shops} 
+              isLoadingMore={isLoadingMore}
+              hasMore={hasMore}
+            />
           </View>
         )}
       </ScrollView>
