@@ -4,11 +4,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconButton } from '@/components/ui/IconButton';
 import { ProfileCard, SettingsSection } from '@/components/profile';
 import { useAuth } from '@/contexts/AuthContext';
+import { useState } from 'react';
 import type { SettingsSection as SettingsSectionType } from '@/types';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, deleteAccount } = useAuth();
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleEditProfile = () => {
     Alert.alert('Edit Profile', 'Profile editing would open here');
@@ -40,20 +42,41 @@ export default function ProfileScreen() {
   const handleDeleteAccount = () => {
     Alert.alert(
       'Delete Account',
-      'Are you sure you want to delete your account? This action cannot be undone.',
+      'Are you sure you want to delete your account? This will permanently delete all your data including shops, products, and saved items. This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: async () => {
-            // TODO: Implement account deletion via Supabase
-            try {
-              await signOut();
-              router.replace('/');
-            } catch (error) {
-              console.error('Delete account error:', error);
-            }
+          onPress: () => {
+            // Second confirmation for extra safety
+            Alert.alert(
+              'Final Confirmation',
+              'Type DELETE to confirm account deletion.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Confirm Delete',
+                  style: 'destructive',
+                  onPress: async () => {
+                    setIsDeleting(true);
+                    try {
+                      await deleteAccount();
+                      router.replace('/');
+                    } catch (error) {
+                      console.error('Delete account error:', error);
+                      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                      Alert.alert(
+                        'Error',
+                        `Failed to delete account: ${errorMessage}`
+                      );
+                    } finally {
+                      setIsDeleting(false);
+                    }
+                  },
+                },
+              ]
+            );
           },
         },
       ]
@@ -169,9 +192,9 @@ export default function ProfileScreen() {
         {
           id: 'delete-account',
           icon: 'trash-outline',
-          title: 'Delete Account',
+          title: isDeleting ? 'Deleting Account...' : 'Delete Account',
           isDestructive: true,
-          onPress: handleDeleteAccount,
+          onPress: isDeleting ? undefined : handleDeleteAccount,
         },
       ],
     },

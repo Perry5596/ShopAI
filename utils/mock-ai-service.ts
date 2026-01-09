@@ -1,169 +1,63 @@
-import type { SnapResult, ProductLink } from '@/types';
+import type { SnapResult } from '@/types';
+import { supabase } from './supabase';
 
 /**
- * Mock AI service that simulates image analysis.
- * Returns dummy data that matches the SnapResult schema.
- *
- * When integrating with a real AI service:
- * 1. Replace the implementation of analyzeImage()
- * 2. Keep the same function signature and return type
- * 3. The rest of the app will work without changes
+ * AI service that analyzes images using the analyze-product edge function.
+ * Uses GPT-5 Nano with web search to identify products and find purchase links.
  */
 
-// Simulated delay to mimic AI processing time
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-// Mock product data pools for variety
-const MOCK_PRODUCTS: Array<Omit<ProductLink, 'id' | 'shopId'>> = [
-  {
-    title: 'Nike Air Max 90',
-    price: '$129.99',
-    imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200',
-    affiliateUrl: 'https://nike.com/air-max-90',
-    source: 'Nike',
-    isRecommended: false,
-    rating: 4.8,
-    reviewCount: 2341,
-  },
-  {
-    title: 'Nike Air Max 90 Essential',
-    price: '$119.99',
-    imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200',
-    affiliateUrl: 'https://amazon.com/nike-air-max',
-    source: 'Amazon',
-    isRecommended: false,
-    rating: 4.5,
-    reviewCount: 892,
-  },
-  {
-    title: 'Apple Watch Series 9',
-    price: '$399.00',
-    imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200',
-    affiliateUrl: 'https://apple.com/watch',
-    source: 'Apple',
-    isRecommended: false,
-    rating: 4.9,
-    reviewCount: 5621,
-  },
-  {
-    title: 'Apple Watch Series 9 GPS',
-    price: '$379.00',
-    imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200',
-    affiliateUrl: 'https://amazon.com/apple-watch',
-    source: 'Amazon',
-    isRecommended: false,
-    rating: 4.7,
-    reviewCount: 1234,
-  },
-  {
-    title: 'Vintage Leather Backpack',
-    price: '$89.99',
-    imageUrl: 'https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=200',
-    affiliateUrl: 'https://amazon.com/leather-backpack',
-    source: 'Amazon',
-    isRecommended: false,
-    rating: 4.4,
-    reviewCount: 1205,
-  },
-  {
-    title: 'Premium Leather Bag',
-    price: '$109.99',
-    imageUrl: 'https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=200',
-    affiliateUrl: 'https://target.com/leather-bag',
-    source: 'Target',
-    isRecommended: false,
-    rating: 4.2,
-    reviewCount: 456,
-  },
-  {
-    title: 'Sony WH-1000XM5',
-    price: '$349.99',
-    imageUrl: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200',
-    affiliateUrl: 'https://sony.com/headphones',
-    source: 'Sony',
-    isRecommended: false,
-    rating: 4.9,
-    reviewCount: 8923,
-  },
-  {
-    title: 'Sony WH-1000XM5 Wireless',
-    price: '$329.99',
-    imageUrl: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200',
-    affiliateUrl: 'https://amazon.com/sony-headphones',
-    source: 'Amazon',
-    isRecommended: false,
-    rating: 4.8,
-    reviewCount: 3456,
-  },
-];
-
-const MOCK_TITLES = [
-  'Nike Air Max 90',
-  'Apple Watch Series 9',
-  'Vintage Leather Backpack',
-  'Sony WH-1000XM5 Headphones',
-  'Classic Sneakers',
-  'Smart Watch',
-  'Premium Bag',
-  'Wireless Headphones',
-];
-
-const MOCK_DESCRIPTIONS = [
-  'Classic sneakers spotted',
-  'Smart wearable device detected',
-  'Premium leather accessory found',
-  'High-quality audio equipment identified',
-  'Stylish footwear match',
-  'Tech gadget recognized',
-  'Fashion accessory detected',
-  'Popular product found',
-];
-
 /**
- * Analyzes an image and returns product recommendations.
+ * Analyzes an image and returns product recommendations with affiliate links.
  *
- * @param imageUrl - The URL of the image to analyze
+ * @param imageUrl - The URL of the image to analyze (must be publicly accessible)
  * @returns SnapResult with title, description, products, and recommended index
  *
  * @example
  * const result = await analyzeImage('https://example.com/photo.jpg');
  * // result.title = 'Nike Air Max 90'
- * // result.products = [{ title: 'Nike Air Max 90', price: '$129.99', ... }, ...]
+ * // result.products = [{ title: 'Nike Air Max 90', price: '$129.99', affiliateUrl: '...', ... }]
  * // result.recommendedIndex = 0
  */
 export async function analyzeImage(imageUrl: string): Promise<SnapResult> {
-  // Simulate AI processing delay (2-4 seconds)
-  const processingTime = 2000 + Math.random() * 2000;
-  await delay(processingTime);
+  console.log('Calling analyze-product edge function with imageUrl:', imageUrl);
+  
+  const { data, error } = await supabase.functions.invoke('analyze-product', {
+    body: { imageUrl },
+  });
 
-  // Randomly select 2-4 products
-  const numProducts = 2 + Math.floor(Math.random() * 3);
-  const shuffled = [...MOCK_PRODUCTS].sort(() => Math.random() - 0.5);
-  const selectedProducts = shuffled.slice(0, numProducts);
+  console.log('Edge function response - data:', data, 'error:', error);
 
-  // Pick a random title and description
-  const titleIndex = Math.floor(Math.random() * MOCK_TITLES.length);
-  const title = MOCK_TITLES[titleIndex];
-  const description = MOCK_DESCRIPTIONS[titleIndex % MOCK_DESCRIPTIONS.length];
+  if (error) {
+    console.error('Edge function error:', error);
+    // Try to get more details from the error
+    const errorDetails = error.context?.body ? await error.context.body : error.message;
+    console.error('Error details:', errorDetails);
+    throw new Error(
+      typeof errorDetails === 'string' ? errorDetails : (error.message || 'Failed to analyze image. Please try again.')
+    );
+  }
 
-  // Randomly select which product to recommend
-  const recommendedIndex = Math.floor(Math.random() * selectedProducts.length);
+  // Check if the response contains an error from the edge function
+  if (data?.error) {
+    console.error('AI service error:', data.error);
+    throw new Error(data.error);
+  }
 
-  return {
-    title,
-    description,
-    products: selectedProducts,
-    recommendedIndex,
-  };
+  // Validate the response has the expected shape
+  if (!data || typeof data.title !== 'string') {
+    console.error('Invalid response from AI service:', data);
+    throw new Error('Invalid response from AI service');
+  }
+
+  return data as SnapResult;
 }
 
 /**
  * Simulates a failed AI analysis (for testing error states).
  * Use this to test how the app handles processing failures.
  */
-export async function analyzeImageWithError(imageUrl: string): Promise<SnapResult> {
-  await delay(1500);
+export async function analyzeImageWithError(
+  _imageUrl: string
+): Promise<SnapResult> {
   throw new Error('AI service temporarily unavailable');
 }

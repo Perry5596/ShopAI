@@ -18,6 +18,7 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -47,10 +48,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch profile from database
+  // Fetch profile from database with timeout
   const fetchProfile = useCallback(async (userId: string, authUser: User) => {
     try {
-      const dbProfile = await profileService.getProfile(userId);
+      // Add a timeout to prevent hanging
+      const timeoutPromise = new Promise<null>((_, reject) => 
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 3000)
+      );
+      
+      const profilePromise = profileService.getProfile(userId);
+      const dbProfile = await Promise.race([profilePromise, timeoutPromise]);
+      
       if (dbProfile) {
         setProfile(dbProfile);
       } else {
@@ -73,32 +81,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize auth state
   useEffect(() => {
+    let isMounted = true;
+
     // Get initial session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchProfile(session.user.id, session.user);
+    const initAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!isMounted) return;
+        
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          await fetchProfile(session.user.id, session.user);
+        }
+      } catch (error) {
+        console.error('Auth init error:', error);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
-      setIsLoading(false);
-    });
+    };
+
+    initAuth();
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state changed:', event);
+        if (!isMounted) return;
+
         setSession(session);
         setUser(session?.user ?? null);
+        
         if (session?.user) {
-          await fetchProfile(session.user.id, session.user);
+          try {
+            await fetchProfile(session.user.id, session.user);
+          } catch (error) {
+            console.error('Profile fetch error:', error);
+          }
         } else {
           setProfile(null);
         }
+        
         setIsLoading(false);
       }
     );
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, [fetchProfile]);
@@ -198,6 +230,76 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Delete account - deletes all user data
+  const deleteAccount = useCallback(async () => {
+    try {
+      setIsLoading(true);
+
+      if (!user?.id) {
+        throw new Error('No user logged in');
+      }
+
+      console.log('Deleting account data for user:', user.id);
+
+      // 1. Delete user's storage files first
+      try {
+        const { data: files } = await supabase.storage
+          .from('shop-images')
+          .list(user.id);
+
+        if (files && files.length > 0) {
+          const filePaths = files.map((file) => `${user.id}/${file.name}`);
+          const { error: storageError } = await supabase.storage.from('shop-images').remove(filePaths);
+          if (storageError) {
+            console.error('Storage deletion error:', storageError);
+          } else {
+            console.log(`Deleted ${filePaths.length} storage files`);
+          }
+        }
+      } catch (storageError) {
+        console.error('Storage deletion error (non-fatal):', storageError);
+      }
+
+      // 2. Delete all shops (products will cascade delete)
+      const { error: shopsError } = await supabase
+        .from('shops')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (shopsError) {
+        console.error('Shops deletion error:', shopsError);
+      } else {
+        console.log('Deleted all shops and products');
+      }
+
+      // 3. Delete the profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', user.id);
+
+      if (profileError) {
+        console.error('Profile deletion error:', profileError);
+        throw new Error(profileError.message || 'Failed to delete profile');
+      }
+
+      console.log('Successfully deleted account data');
+
+      // 4. Sign out the user
+      await supabase.auth.signOut();
+
+      // 5. Clear local state
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+    } catch (error) {
+      console.error('Delete account error:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user]);
+
   const value: AuthContextType = {
     user,
     session,
@@ -207,6 +309,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signInWithGoogle,
     signInWithApple,
     signOut,
+    deleteAccount,
     refreshProfile,
   };
 
