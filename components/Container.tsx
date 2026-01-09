@@ -1,9 +1,17 @@
-import { SafeAreaView } from 'react-native';
+import { ViewProps } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-export const Container = ({ children }: { children: React.ReactNode }) => {
-  return <SafeAreaView className={styles.container}>{children}</SafeAreaView>;
-};
+interface ContainerProps extends ViewProps {
+  children: React.ReactNode;
+  padded?: boolean;
+}
 
-const styles = {
-  container: 'flex flex-1 m-6',
-};
+export function Container({ children, padded = true, className, ...props }: ContainerProps) {
+  return (
+    <SafeAreaView
+      className={`flex-1 bg-background ${padded ? 'px-5' : ''} ${className || ''}`}
+      {...props}>
+      {children}
+    </SafeAreaView>
+  );
+}
