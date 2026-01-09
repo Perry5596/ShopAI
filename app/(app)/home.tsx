@@ -1,15 +1,8 @@
 import { View, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Header, StatsCard, MiniStatsRow, RecentShops, FloatingActionButton } from '@/components/home';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Shop } from '@/types';
-
-// Mock data for demonstration
-const MOCK_USER = {
-  name: 'Joe B',
-  username: 'Perry5596',
-  avatarUrl: undefined,
-  isPremium: true,
-};
 
 const MOCK_SHOPS: Shop[] = [
   {
@@ -136,6 +129,7 @@ const MOCK_SHOPS: Shop[] = [
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const { profile } = useAuth();
 
   const totalProducts = MOCK_SHOPS.reduce((acc, s) => acc + s.products.length, 0);
   const totalFavorites = MOCK_SHOPS.filter((s) => s.isFavorite).length;
@@ -147,8 +141,8 @@ export default function HomeScreen() {
         className="bg-background"
         style={{ paddingTop: insets.top }}>
         <Header
-          userName={MOCK_USER.name}
-          userAvatar={MOCK_USER.avatarUrl}
+          userName={profile?.name}
+          userAvatar={profile?.avatarUrl}
         />
       </View>
 

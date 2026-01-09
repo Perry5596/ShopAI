@@ -2,16 +2,19 @@
  * Shop AI TypeScript Interfaces
  */
 
-// User types
-export interface User {
+// Auth/User types
+export interface UserProfile {
   id: string;
   email: string;
   name: string;
-  username: string;
+  username?: string;
   avatarUrl?: string;
   isPremium: boolean;
-  createdAt: string;
+  createdAt?: string;
 }
+
+// Legacy User type (alias for backwards compatibility)
+export type User = UserProfile;
 
 // Shop/Scan result types
 export interface Shop {
@@ -67,10 +70,16 @@ export interface CameraState {
 // Navigation param types
 export type RootStackParamList = {
   index: undefined;
-  '(auth)/sign-in': undefined;
   '(app)/home': undefined;
   '(app)/profile': undefined;
   '(app)/snap': undefined;
   '(app)/shop/[id]': { id: string };
   '(app)/fix-issue/[id]': { id: string };
 };
+
+// Auth types
+export interface AuthState {
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  user: UserProfile | null;
+}

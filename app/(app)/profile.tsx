@@ -3,18 +3,12 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconButton } from '@/components/ui/IconButton';
 import { ProfileCard, SettingsSection } from '@/components/profile';
+import { useAuth } from '@/contexts/AuthContext';
 import type { SettingsSection as SettingsSectionType } from '@/types';
-
-// Mock user data
-const MOCK_USER = {
-  name: 'Joe B',
-  username: 'Perry5596',
-  avatarUrl: undefined,
-  isPremium: true,
-};
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
+  const { profile, signOut } = useAuth();
 
   const handleEditProfile = () => {
     Alert.alert('Edit Profile', 'Profile editing would open here');
@@ -29,7 +23,15 @@ export default function ProfileScreen() {
         {
           text: 'Logout',
           style: 'destructive',
-          onPress: () => router.replace('/'),
+          onPress: async () => {
+            try {
+              await signOut();
+              router.replace('/');
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Error', 'Failed to logout. Please try again.');
+            }
+          },
         },
       ]
     );
@@ -44,14 +46,22 @@ export default function ProfileScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            // TODO: Implement account deletion
-            router.replace('/');
+          onPress: async () => {
+            // TODO: Implement account deletion via Supabase
+            try {
+              await signOut();
+              router.replace('/');
+            } catch (error) {
+              console.error('Delete account error:', error);
+            }
           },
         },
       ]
     );
   };
+
+  // Generate username from email
+  const username = profile?.email?.split('@')[0] || 'user';
 
   const settingsSections: SettingsSectionType[] = [
     {
@@ -192,10 +202,10 @@ export default function ProfileScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
         {/* Profile Card - Now in its own section */}
         <ProfileCard
-          name={MOCK_USER.name}
-          username={MOCK_USER.username}
-          avatarUrl={MOCK_USER.avatarUrl}
-          isPremium={MOCK_USER.isPremium}
+          name={profile?.name || 'User'}
+          username={username}
+          avatarUrl={profile?.avatarUrl}
+          isPremium={profile?.isPremium || false}
           onPress={handleEditProfile}
         />
         

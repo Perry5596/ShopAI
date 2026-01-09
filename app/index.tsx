@@ -1,20 +1,40 @@
-import { View, Text, Linking } from 'react-native';
+import { useEffect } from 'react';
+import { View, Text, Linking, Alert, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '@/components/ui/Button';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
+  const { signInWithGoogle, signInWithApple, isAuthenticated, isLoading } = useAuth();
 
-  const handleAppleSignIn = () => {
-    // TODO: Implement Apple Sign In
-    router.replace('/(app)/home');
+  // Redirect to home if already authenticated
+  useEffect(() => {
+    if (isAuthenticated && !isLoading) {
+      router.replace('/(app)/home');
+    }
+  }, [isAuthenticated, isLoading]);
+
+  const handleAppleSignIn = async () => {
+    try {
+      await signInWithApple();
+    } catch (error) {
+      Alert.alert('Coming Soon', 'Apple Sign In will be available soon!');
+    }
   };
 
-  const handleGoogleSignIn = () => {
-    // TODO: Implement Google Sign In
-    router.replace('/(app)/home');
+  const handleGoogleSignIn = async () => {
+    try {
+      await signInWithGoogle();
+    } catch (error: any) {
+      console.error('Google sign in error:', error);
+      Alert.alert(
+        'Sign In Error',
+        error?.message || 'Failed to sign in with Google. Please try again.'
+      );
+    }
   };
 
   const handleTermsPress = () => {
@@ -26,6 +46,24 @@ export default function WelcomeScreen() {
     // TODO: Replace with actual privacy URL
     Linking.openURL('https://example.com/privacy');
   };
+
+  // Show loading if checking auth or signing in
+  if (isLoading) {
+    return (
+      <View className="flex-1 bg-background items-center justify-center">
+        <ActivityIndicator size="large" color="#000000" />
+      </View>
+    );
+  }
+
+  // Don't render welcome if already authenticated
+  if (isAuthenticated) {
+    return (
+      <View className="flex-1 bg-background items-center justify-center">
+        <ActivityIndicator size="large" color="#000000" />
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 bg-background">
