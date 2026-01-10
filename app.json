@@ -3,9 +3,11 @@
     "name": "ShopAI",
     "slug": "ShopAI",
     "version": "1.0.0",
-
     "scheme": "ShopAI",
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "web": {
       "bundler": "metro",
       "output": "static",
@@ -28,32 +30,42 @@
     ],
     "experiments": {
       "typedRoutes": true,
-
       "tsconfigPaths": true
     },
-
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-
     "userInterfaceStyle": "light",
-
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Allow Shop AI to access your camera to scan products and find the best deals.",
-        "NSPhotoLibraryUsageDescription": "Allow Shop AI to access your photos to find products from your gallery."
-      }
+        "NSPhotoLibraryUsageDescription": "Allow Shop AI to access your photos to find products from your gallery.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "app.luminasoftware.shopai"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "7cf0427a-956e-468d-89f0-79ee3b07b02d"
       }
     }
   }
