@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { shopService, productService, profileService } from '@/utils/supabase-service';
+import { shopService, productService, profileService, rateLimitService } from '@/utils/supabase-service';
 import { analyzeImage } from '@/utils/mock-ai-service';
 import type { Shop, SnapResult } from '@/types';
 
@@ -200,6 +200,14 @@ export const useShopStore = create<ShopState>((set, get) => ({
         products: createdProducts.length,
         savings,
       });
+
+      // Increment rate limit counter (only after successful completion)
+      try {
+        await rateLimitService.incrementRateLimit(userId);
+      } catch (rateLimitError) {
+        // Log but don't fail the shop if rate limit increment fails
+        console.error('Failed to increment rate limit:', rateLimitError);
+      }
 
       // Find the recommendation
       const recommendation = createdProducts.find((p) => p.isRecommended);

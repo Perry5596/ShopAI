@@ -8,6 +8,8 @@ import type {
   DbProduct,
   DbProfile,
   ShopStatus,
+  RateLimitStatus,
+  RateLimitIncrementResult,
 } from '@/types';
 
 // ============================================================================
@@ -412,6 +414,58 @@ export const productService = {
     const { error } = await supabase.from('products').delete().eq('shop_id', shopId);
 
     if (error) throw error;
+  },
+};
+
+// ============================================================================
+// Rate Limit Service
+// ============================================================================
+
+export const rateLimitService = {
+  /**
+   * Check if user can create a new shop based on rate limits
+   * @param userId - User ID to check rate limit for
+   * @returns Rate limit status including canShop, shopsUsed, shopsRemaining, etc.
+   */
+  async checkRateLimit(userId: string): Promise<RateLimitStatus> {
+    const { data, error } = await supabase.rpc('check_shop_rate_limit', {
+      p_user_id: userId,
+    });
+
+    if (error) {
+      console.error('Failed to check rate limit:', error);
+      // On error, default to allowing the shop (fail open for better UX)
+      // The server will enforce the limit anyway
+      return {
+        canShop: true,
+        shopsUsed: 0,
+        shopsRemaining: 14,
+        maxShops: 14,
+        windowStart: null,
+        resetsAt: null,
+      };
+    }
+
+    return data as RateLimitStatus;
+  },
+
+  /**
+   * Increment shop count after successful shop completion
+   * Should only be called after a shop has been successfully processed
+   * @param userId - User ID to increment rate limit for
+   * @returns Updated rate limit info
+   */
+  async incrementRateLimit(userId: string): Promise<RateLimitIncrementResult> {
+    const { data, error } = await supabase.rpc('increment_shop_rate_limit', {
+      p_user_id: userId,
+    });
+
+    if (error) {
+      console.error('Failed to increment rate limit:', error);
+      throw error;
+    }
+
+    return data as RateLimitIncrementResult;
   },
 };
 

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { CameraView, CameraControls, ZoomControls } from '@/components/snap';
 import { useSnapStore } from '@/stores';
 import { useAuth } from '@/contexts/AuthContext';
+import { rateLimitService } from '@/utils/supabase-service';
 
 export default function SnapScreen() {
   const insets = useSafeAreaInsets();
@@ -57,6 +58,23 @@ export default function SnapScreen() {
     );
   }
 
+  const formatTimeRemaining = (resetsAt: string): string => {
+    const now = new Date();
+    const resetDate = new Date(resetsAt);
+    const diffMs = resetDate.getTime() - now.getTime();
+    
+    if (diffMs <= 0) return 'soon';
+    
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+    const remainingHours = diffHours % 24;
+    
+    if (diffDays > 0) {
+      return `${diffDays} day${diffDays > 1 ? 's' : ''} and ${remainingHours} hour${remainingHours !== 1 ? 's' : ''}`;
+    }
+    return `${diffHours} hour${diffHours !== 1 ? 's' : ''}`;
+  };
+
   const processImage = async (uri: string) => {
     if (!user?.id) {
       Alert.alert('Error', 'You must be logged in to capture images.');
@@ -64,6 +82,25 @@ export default function SnapScreen() {
     }
 
     try {
+      // Check rate limit before processing
+      const rateLimit = await rateLimitService.checkRateLimit(user.id);
+      
+      if (!rateLimit.canShop) {
+        const timeRemaining = rateLimit.resetsAt 
+          ? formatTimeRemaining(rateLimit.resetsAt) 
+          : 'next week';
+        
+        Alert.alert(
+          'Weekly Limit Reached',
+          `You've used all ${rateLimit.maxShops} shops for this week. Your limit will reset in ${timeRemaining}.`,
+          [{ text: 'OK', onPress: () => {
+            setIsCapturing(false);
+            setCapturedImageUri(null);
+          }}]
+        );
+        return;
+      }
+
       // Start capture and process - this creates the shop in processing state
       // and returns immediately, with background processing continuing
       await captureAndProcess(uri, user.id, profile);
@@ -78,6 +115,7 @@ export default function SnapScreen() {
         [{ text: 'OK' }]
       );
       setIsCapturing(false);
+      setCapturedImageUri(null);
     }
   };
 

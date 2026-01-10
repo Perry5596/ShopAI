@@ -38,9 +38,14 @@ export default function ShopDetailScreen() {
   const handleShare = async () => {
     if (!shop) return;
     try {
+      const shareMessage = shop.recommendation
+        ? `${shop.recommendation.affiliateUrl}`
+        : `Check out this ${shop.title} I found on Shop AI!`;
+      
       await Share.share({
-        message: `Check out this ${shop.title} I found on Shop AI!`,
+        message: shareMessage,
         title: shop.title,
+        url: shop.recommendation?.affiliateUrl,
       });
     } catch (error) {
       Alert.alert('Error', 'Failed to share');

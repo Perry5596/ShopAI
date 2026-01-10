@@ -143,3 +143,31 @@ export interface AuthState {
   isLoading: boolean;
   user: UserProfile | null;
 }
+
+// Rate limit types
+export interface RateLimitStatus {
+  canShop: boolean;
+  shopsUsed: number;
+  shopsRemaining: number;
+  maxShops: number;
+  windowStart: string | null;
+  resetsAt: string | null;
+}
+
+export interface RateLimitIncrementResult {
+  success: boolean;
+  shopsUsed: number;
+  shopsRemaining: number;
+  maxShops: number;
+  windowStart: string;
+  resetsAt: string;
+}
+
+export interface DbShopRateLimit {
+  id: string;
+  user_id: string;
+  window_start: string;
+  shop_count: number;
+  created_at: string;
+  updated_at: string;
+}
