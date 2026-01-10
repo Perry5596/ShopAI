@@ -1,6 +1,7 @@
 import { View, Text, ScrollView, Alert, Linking } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Constants from 'expo-constants';
 import { IconButton } from '@/components/ui/IconButton';
 import { ProfileCard, SettingsSection } from '@/components/profile';
 import { useAuth } from '@/contexts/AuthContext';
@@ -171,6 +172,10 @@ export default function ProfileScreen() {
   // Generate username from email or use profile username
   const username = profile?.username || profile?.email?.split('@')[0] || 'user';
 
+  // Get app version and current year
+  const appVersion = Constants.expoConfig?.version || '1.0.0';
+  const currentYear = new Date().getFullYear();
+
   const settingsSections: SettingsSectionType[] = [
     {
       title: 'Account',
@@ -326,6 +331,16 @@ export default function ProfileScreen() {
             items={section.items}
           />
         ))}
+
+        {/* Copyright and Version Info */}
+        <View className="items-center py-6 mt-4">
+          <Text className="text-[11px] font-inter text-foreground-subtle text-center">
+            © {currentYear} Lumina Software LLC
+          </Text>
+          <Text className="text-[11px] font-inter text-foreground-subtle text-center mt-1">
+            Version {appVersion}
+          </Text>
+        </View>
       </ScrollView>
     </View>
   );

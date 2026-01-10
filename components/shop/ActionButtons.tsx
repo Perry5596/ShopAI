@@ -1,4 +1,4 @@
-import { View } from 'react-native';
+import { View, Text } from 'react-native';
 import { router } from 'expo-router';
 import { Button } from '../ui/Button';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -44,6 +44,10 @@ export function ActionButtons({ shopId, onDone }: ActionButtonsProps) {
           className="flex-1 ml-3"
         />
       </View>
+      {/* Affiliate Disclaimer */}
+      <Text className="text-[10px] font-inter text-foreground-subtle text-center px-5 pt-2 pb-1">
+        Some links may be affiliate links. We may receive a commission at no extra cost to you.
+      </Text>
     </View>
   );
 }
