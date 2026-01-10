@@ -36,7 +36,6 @@ export interface Shop {
   isFavorite: boolean;
   status: ShopStatus;
   savings: number; // in cents (average price - lowest price)
-  sessionId?: string; // Link to search session for progressive updates
   products: ProductLink[];
   recommendation?: ProductLink;
 }
@@ -72,7 +71,6 @@ export interface DbShop {
   is_favorite: boolean;
   status: ShopStatus;
   savings: number;
-  session_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -144,157 +142,4 @@ export interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   user: UserProfile | null;
-}
-
-// ============================================================================
-// Search Session Pipeline Types (Phase 0+)
-// ============================================================================
-
-// Session status through the pipeline
-export type SessionStatus = 'identifying' | 'searching' | 'ranking' | 'completed' | 'failed';
-
-// Store sources for retrieval
-export type StoreSource = 'amazon' | 'target' | 'walmart' | 'bestbuy' | 'ebay';
-
-// Store retrieval status
-export type StoreStatus = 'pending' | 'success' | 'timeout' | 'error';
-
-// Search session tracking
-export interface SearchSession {
-  id: string;
-  shopId: string;
-  userId: string;
-  imageUrl: string;
-  imageHash: string;
-  status: SessionStatus;
-  stageTimings: {
-    createdAt: string;
-    hypothesisAt?: string;
-    firstResultAt?: string;
-    rankingStartedAt?: string;
-    completedAt?: string;
-  };
-  error?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// Product hypothesis from vision extraction
-export interface ProductHypothesis {
-  sessionId: string;
-  productName: string;
-  brand?: string;
-  category: string;
-  subcategory?: string;
-  attributes: Record<string, string>;
-  searchQueries: {
-    strict: string;
-    broad: string;
-  };
-  confidence: number;
-  disambiguationNeeded: boolean;
-  disambiguationOptions?: string[];
-  rawVisionOutput?: string;
-  createdAt: string;
-}
-
-// Individual product candidate from a store
-export interface ProductCandidate {
-  externalId: string;
-  title: string;
-  priceCents: number;
-  priceDisplay: string;
-  url: string;
-  affiliateUrl: string;
-  imageUrl?: string;
-  rating?: number;
-  reviewCount?: number;
-  inStock: boolean;
-  matchScore?: number;
-}
-
-// Store retrieval result
-export interface StoreCandidate {
-  sessionId: string;
-  source: StoreSource;
-  sourceStatus: StoreStatus;
-  candidates: ProductCandidate[];
-  queryUsed: string;
-  responseTimeMs: number;
-  errorMessage?: string;
-  createdAt: string;
-}
-
-// Ranked product result
-export interface RankedProduct {
-  rank: number;
-  source: string;
-  externalId: string;
-  title: string;
-  priceDisplay: string;
-  affiliateUrl: string;
-  imageUrl?: string;
-  rating?: number;
-  reviewCount?: number;
-  confidence: number;
-  isRecommended: boolean;
-  reasoning?: string;
-}
-
-// Final ranked results
-export interface RankedResult {
-  sessionId: string;
-  rankedProducts: RankedProduct[];
-  dedupedCount: number;
-  totalCandidatesEvaluated: number;
-  rankingModel: string;
-  rankingTimeMs: number;
-  createdAt: string;
-}
-
-// Session update event for progressive rendering
-export interface SessionUpdate {
-  sessionId: string;
-  eventType: 'status_change' | 'hypothesis_ready' | 'store_result' | 'ranking_complete' | 'error';
-  timestamp: string;
-  payload: {
-    status?: SessionStatus;
-    hypothesis?: ProductHypothesis;
-    storeResult?: StoreCandidate;
-    rankedResults?: RankedResult;
-    error?: string;
-  };
-}
-
-// ============================================================================
-// Database row types for Search Sessions (snake_case from Supabase)
-// ============================================================================
-
-export interface DbSearchSession {
-  id: string;
-  shop_id: string;
-  user_id: string;
-  image_url: string;
-  image_hash: string;
-  status: SessionStatus;
-  stage_timings: {
-    created_at: string;
-    hypothesis_at?: string;
-    first_result_at?: string;
-    ranking_started_at?: string;
-    completed_at?: string;
-  };
-  error: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface DbSessionArtifact {
-  id: string;
-  session_id: string;
-  artifact_type: 'hypothesis' | 'store_result' | 'ranked_result' | 'raw_llm_output';
-  source: string | null;
-  payload: Record<string, unknown>;
-  duration_ms: number | null;
-  created_at: string;
 }

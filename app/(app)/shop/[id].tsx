@@ -1,11 +1,11 @@
-import { View, Text, ScrollView, TouchableOpacity, Alert, Share } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Share, ActivityIndicator } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { ShopHeader, ProductImage, ProductLinks, ActionButtons, StageIndicator, StoreStatusRow } from '@/components/shop';
+import { ShopHeader, ProductImage, ProductLinks, ActionButtons } from '@/components/shop';
 import { Badge } from '@/components/ui/Badge';
-import { useShopStore, useSessionStore } from '@/stores';
+import { useShopStore } from '@/stores';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Shop } from '@/types';
 
@@ -14,37 +14,10 @@ export default function ShopDetailScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { shops, getShopById, toggleFavorite, deleteShop } = useShopStore();
-  const { 
-    activeSession, 
-    hypothesis, 
-    storeResults, 
-    startPolling, 
-    stopPolling, 
-    getStoreStatuses,
-    reset: resetSession 
-  } = useSessionStore();
   
   // Get shop from store - this will update when the store updates
   const shop = getShopById(id || '');
   const [isFavorite, setIsFavorite] = useState(shop?.isFavorite ?? false);
-
-  // Start polling when viewing a processing shop with a session
-  useEffect(() => {
-    if (shop?.status === 'processing' && shop?.sessionId) {
-      startPolling(shop.sessionId);
-    }
-
-    return () => {
-      stopPolling();
-    };
-  }, [shop?.status, shop?.sessionId]);
-
-  // Clean up session when leaving the screen
-  useEffect(() => {
-    return () => {
-      resetSession();
-    };
-  }, []);
 
   // Update local favorite state when shop changes
   useEffect(() => {
@@ -134,12 +107,8 @@ export default function ShopDetailScreen() {
     );
   }
 
-  // Processing state - with progressive updates
+  // Processing state
   if (shop.status === 'processing') {
-    const sessionStatus = activeSession?.status || 'identifying';
-    const storeStatuses = getStoreStatuses();
-    const productName = hypothesis?.productName;
-
     return (
       <View className="flex-1 bg-background">
         <ShopHeader onShare={handleShare} onMenu={handleMenu} />
@@ -150,26 +119,16 @@ export default function ShopDetailScreen() {
           contentContainerStyle={{ paddingBottom: 120 }}>
           <ProductImage imageUrl={shop.imageUrl} />
           
-          <View className="bg-background rounded-t-3xl -mt-6 pt-5">
-            {/* Stage Indicator with product name */}
-            <StageIndicator 
-              status={sessionStatus} 
-              productName={productName}
-            />
-
-            {/* Store Status Chips - show during searching phase */}
-            {(sessionStatus === 'searching' || sessionStatus === 'ranking') && (
-              <StoreStatusRow stores={storeStatuses} />
-            )}
-
-            {/* Show partial results if we have any */}
-            {storeResults.length > 0 && (
-              <View className="px-5 mt-4">
-                <Text className="text-[14px] font-inter-medium text-foreground-muted mb-2">
-                  Found {storeResults.reduce((sum, r) => sum + (r.candidates?.length || 0), 0)} products so far...
-                </Text>
-              </View>
-            )}
+          <View className="bg-background rounded-t-3xl -mt-6 pt-5 px-5">
+            <View className="items-center py-8">
+              <ActivityIndicator size="large" color="#000000" />
+              <Text className="text-[18px] font-inter-semibold text-foreground mt-4">
+                Analyzing your image...
+              </Text>
+              <Text className="text-[14px] font-inter text-foreground-muted mt-2 text-center">
+                Finding the best products and deals for you
+              </Text>
+            </View>
           </View>
         </ScrollView>
         

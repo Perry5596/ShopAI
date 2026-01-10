@@ -106,19 +106,13 @@ export const useSnapStore = create<SnapState>((set, get) => ({
 /**
  * Process image in background using mock AI service.
  * This runs asynchronously after the user has navigated back to home.
- * Phase 0: Now passes shopId and userId for session tracking.
  */
 async function processImageInBackground(shopId: string, userId: string, imageUrl: string): Promise<void> {
   const shopStore = useShopStore.getState();
 
   try {
-    // Call the AI service with shop and user IDs for session tracking
-    const result = await analyzeImage(imageUrl, shopId, userId);
-
-    // Log session ID for debugging
-    if (result.sessionId) {
-      console.log(`[Shop ${shopId}] Processing completed with session: ${result.sessionId}`);
-    }
+    // Call the mock AI service (will be replaced with real AI later)
+    const result = await analyzeImage(imageUrl);
 
     // Complete the shop processing with the results (also increments user stats)
     await shopStore.completeShopProcessing(shopId, userId, result);
