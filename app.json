@@ -15,6 +15,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-apple-authentication",
       [
         "expo-camera",
         {
@@ -45,6 +46,7 @@
     ],
     "ios": {
       "supportsTablet": true,
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Allow Shop AI to access your camera to scan products and find the best deals.",
         "NSPhotoLibraryUsageDescription": "Allow Shop AI to access your photos to find products from your gallery.",

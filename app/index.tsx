@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { View, Text, Linking, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, Linking, Alert, ActivityIndicator, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,8 +20,16 @@ export default function WelcomeScreen() {
   const handleAppleSignIn = async () => {
     try {
       await signInWithApple();
-    } catch (error) {
-      Alert.alert('Coming Soon', 'Apple Sign In will be available soon!');
+    } catch (error: any) {
+      // Don't show error for user cancellation
+      if (error?.code === 'ERR_REQUEST_CANCELED') {
+        return;
+      }
+      console.error('Apple sign in error:', error);
+      Alert.alert(
+        'Sign In Error',
+        error?.message || 'Failed to sign in with Apple. Please try again.'
+      );
     }
   };
 
@@ -89,21 +97,23 @@ export default function WelcomeScreen() {
       <View
         className="px-6"
         style={{ paddingBottom: insets.bottom + 24 }}>
-        {/* Apple Sign In */}
-        <Button
-          title="Continue with Apple"
-          variant="primary"
-          size="lg"
-          icon="logo-apple"
-          fullWidth
-          onPress={handleAppleSignIn}
-          className="mb-3"
-        />
+        {/* Apple Sign In - iOS only */}
+        {Platform.OS === 'ios' && (
+          <Button
+            title="Continue with Apple"
+            variant="primary"
+            size="lg"
+            icon="logo-apple"
+            fullWidth
+            onPress={handleAppleSignIn}
+            className="mb-3"
+          />
+        )}
 
         {/* Google Sign In */}
         <Button
           title="Continue with Google"
-          variant="outline"
+          variant={Platform.OS === 'ios' ? 'outline' : 'primary'}
           size="lg"
           icon="logo-google"
           fullWidth

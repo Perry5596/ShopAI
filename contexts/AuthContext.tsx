@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { Platform } from 'react-native';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { supabase } from '@/utils/supabase';
 import { useProfileStore } from '@/stores';
 import type { Session, User } from '@supabase/supabase-js';
@@ -217,11 +219,76 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Sign in with Apple (placeholder for future implementation)
+  // Sign in with Apple (native iOS only)
   const signInWithApple = useCallback(async () => {
-    // TODO: Implement Apple Sign In
-    console.log('Apple Sign In not yet implemented');
-    throw new Error('Apple Sign In coming soon');
+    try {
+      // Check platform - native Apple Sign-In only works on iOS
+      if (Platform.OS !== 'ios') {
+        throw new Error('Apple Sign In is only available on iOS devices');
+      }
+
+      // Check if Apple Sign-In is available on this device
+      const isAvailable = await AppleAuthentication.isAvailableAsync();
+      if (!isAvailable) {
+        throw new Error('Apple Sign In is not available on this device');
+      }
+
+      setIsLoading(true);
+
+      // Request Apple Sign-In credentials
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      // Ensure we have the identity token
+      if (!credential.identityToken) {
+        throw new Error('No identity token returned from Apple');
+      }
+
+      // Sign in to Supabase using the Apple identity token
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken,
+      });
+
+      if (error) {
+        console.error('Supabase Apple auth error:', error);
+        throw error;
+      }
+
+      // Note: Apple only returns fullName on the FIRST sign-in
+      // After that, we need to rely on what's stored in Supabase
+      if (credential.fullName && data.user) {
+        const fullName = [
+          credential.fullName.givenName,
+          credential.fullName.familyName,
+        ]
+          .filter(Boolean)
+          .join(' ');
+
+        // Update user metadata with the name if we received it
+        if (fullName) {
+          await supabase.auth.updateUser({
+            data: { full_name: fullName },
+          });
+        }
+      }
+
+      console.log('Apple Sign In successful');
+    } catch (error: any) {
+      // Handle user cancellation gracefully
+      if (error.code === 'ERR_REQUEST_CANCELED') {
+        console.log('User cancelled Apple Sign In');
+        return; // Don't throw, just return silently
+      }
+      console.error('Apple Sign In error:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   // Sign out
