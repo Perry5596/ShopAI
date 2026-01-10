@@ -1,18 +1,23 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { View, ScrollView, StyleSheet, ActivityIndicator, Text, RefreshControl, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import { View, ScrollView, StyleSheet, ActivityIndicator, Text, RefreshControl, NativeSyntheticEvent, NativeScrollEvent, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Header, StatsCard, MiniStatsRow, RecentShops, FloatingActionButton } from '@/components/home';
+import { CenteredModal } from '@/components/ui/Modal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useShopStore } from '@/stores';
 import { shopService } from '@/utils/supabase-service';
+import type { Shop } from '@/types';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { profile, user, refreshProfile } = useAuth();
-  const { shops, isLoading, isLoadingMore, hasMore, error, fetchShops, fetchMoreShops } = useShopStore();
+  const { shops, isLoading, isLoadingMore, hasMore, error, fetchShops, fetchMoreShops, updateShop } = useShopStore();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [totalFavorites, setTotalFavorites] = useState(0);
+  const [isEditTitleVisible, setIsEditTitleVisible] = useState(false);
+  const [editTitleValue, setEditTitleValue] = useState('');
+  const [editingShop, setEditingShop] = useState<Shop | null>(null);
 
   // Track which shops were processing to detect completion
   const previousProcessingShopsRef = useRef<Set<string>>(new Set());
@@ -118,6 +123,45 @@ export default function HomeScreen() {
   // Convert savings from cents to dollars
   const savingsInDollars = Math.round(totalSavings / 100);
 
+  const handleEditTitle = (shop: Shop) => {
+    setEditingShop(shop);
+    setEditTitleValue(shop.title);
+    setIsEditTitleVisible(true);
+  };
+
+  const handleSaveTitle = async () => {
+    if (!editingShop || !editTitleValue.trim()) {
+      Alert.alert('Error', 'Title cannot be empty');
+      return;
+    }
+
+    const trimmedTitle = editTitleValue.trim();
+    const originalTitle = editingShop.title;
+    
+    // Optimistic update
+    updateShop(editingShop.id, { title: trimmedTitle });
+    setIsEditTitleVisible(false);
+
+    try {
+      // Update in database
+      await shopService.updateShop(editingShop.id, { title: trimmedTitle });
+    } catch (error) {
+      // Revert on error
+      updateShop(editingShop.id, { title: originalTitle });
+      Alert.alert('Error', 'Failed to update title');
+      setIsEditTitleVisible(true);
+      setEditTitleValue(trimmedTitle);
+    } finally {
+      setEditingShop(null);
+    }
+  };
+
+  const handleCancelEditTitle = () => {
+    setIsEditTitleVisible(false);
+    setEditTitleValue('');
+    setEditingShop(null);
+  };
+
   return (
     <LinearGradient
       colors={['#EBEBED', '#F5F5F7']}
@@ -188,6 +232,7 @@ export default function HomeScreen() {
               shops={shops} 
               isLoadingMore={isLoadingMore}
               hasMore={hasMore}
+              onEditTitle={handleEditTitle}
             />
           </View>
         )}
@@ -207,6 +252,41 @@ export default function HomeScreen() {
 
       {/* Floating Action Button */}
       <FloatingActionButton />
+
+      {/* Edit Title Modal - rendered at screen level for proper overlay */}
+      <CenteredModal isVisible={isEditTitleVisible} onClose={handleCancelEditTitle}>
+        <View className="p-6">
+          <Text className="text-[20px] font-inter-semibold text-foreground mb-4">
+            Edit Title
+          </Text>
+          <TextInput
+            value={editTitleValue}
+            onChangeText={setEditTitleValue}
+            placeholder="Enter shop title"
+            placeholderTextColor="#9CA3AF"
+            className="border border-border-light rounded-xl px-4 py-3 text-[16px] font-inter text-foreground bg-card mb-4"
+            autoFocus
+            multiline
+            maxLength={200}
+          />
+          <View className="flex-row justify-end gap-3">
+            <TouchableOpacity
+              onPress={handleCancelEditTitle}
+              className="px-6 py-3 rounded-xl">
+              <Text className="text-[16px] font-inter-medium text-foreground-muted">
+                Cancel
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleSaveTitle}
+              className="px-6 py-3 bg-foreground rounded-xl">
+              <Text className="text-[16px] font-inter-medium text-background">
+                Save
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </CenteredModal>
     </LinearGradient>
   );
 }

@@ -10,9 +10,15 @@ interface RecentShopsProps {
   shops: Shop[];
   isLoadingMore?: boolean;
   hasMore?: boolean;
+  onEditTitle: (shop: Shop) => void;
 }
 
-function ShopItem({ shop }: { shop: Shop }) {
+interface ShopItemProps {
+  shop: Shop;
+  onEditTitle: (shop: Shop) => void;
+}
+
+function ShopItem({ shop, onEditTitle }: ShopItemProps) {
   const { user } = useAuth();
   const { deleteShop } = useShopStore();
 
@@ -48,7 +54,12 @@ function ShopItem({ shop }: { shop: Shop }) {
       'Options',
       '',
       [
-        { text: 'Edit Title', onPress: () => Alert.alert('Edit Title') },
+        { 
+          text: 'Edit Title', 
+          onPress: () => {
+            onEditTitle(shop);
+          }
+        },
         { 
           text: 'Delete Shop', 
           style: 'destructive', 
@@ -190,7 +201,8 @@ type ShopSection = {
   shops: Shop[];
 };
 
-export function RecentShops({ shops, isLoadingMore, hasMore }: RecentShopsProps) {
+export function RecentShops({ shops, isLoadingMore, hasMore, onEditTitle }: RecentShopsProps) {
+
   if (shops.length === 0) {
     return (
       <View className="items-center justify-center py-12">
@@ -259,7 +271,7 @@ export function RecentShops({ shops, isLoadingMore, hasMore }: RecentShopsProps)
             
             {/* Section Shops */}
             {section.shops.map((shop) => (
-              <ShopItem key={shop.id} shop={shop} />
+              <ShopItem key={shop.id} shop={shop} onEditTitle={onEditTitle} />
             ))}
           </View>
         ))}

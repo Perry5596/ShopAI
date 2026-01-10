@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, Alert, Share, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Share, ActivityIndicator, TextInput } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ShopHeader, ProductImage, ProductLinks, ActionButtons } from '@/components/shop';
 import { Badge } from '@/components/ui/Badge';
 import { CircularProgress } from '@/components/ui/CircularProgress';
+import { CenteredModal } from '@/components/ui/Modal';
 import { useShopStore } from '@/stores';
 import { useAuth } from '@/contexts/AuthContext';
 import { shopService } from '@/utils/supabase-service';
@@ -15,13 +16,15 @@ export default function ShopDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { shops, getShopById, toggleFavorite, deleteShop, addShop } = useShopStore();
+  const { shops, getShopById, toggleFavorite, deleteShop, addShop, updateShop } = useShopStore();
   
   // Get shop from store - this will update when the store updates
   const shop = getShopById(id || '');
   const [isFavorite, setIsFavorite] = useState(shop?.isFavorite ?? false);
   const [isLoadingShop, setIsLoadingShop] = useState(false);
   const [shopLoadError, setShopLoadError] = useState<string | null>(null);
+  const [isEditTitleVisible, setIsEditTitleVisible] = useState(false);
+  const [editTitleValue, setEditTitleValue] = useState('');
 
   // Update local favorite state when shop changes
   useEffect(() => {
@@ -123,7 +126,13 @@ export default function ShopDetailScreen() {
       'Options',
       '',
       [
-        { text: 'Edit Title', onPress: () => Alert.alert('Edit Title') },
+        { 
+          text: 'Edit Title', 
+          onPress: () => {
+            setEditTitleValue(shop.title);
+            setIsEditTitleVisible(true);
+          }
+        },
         { 
           text: 'Delete Shop', 
           style: 'destructive', 
@@ -139,6 +148,36 @@ export default function ShopDetailScreen() {
         { text: 'Cancel', style: 'cancel' },
       ]
     );
+  };
+
+  const handleSaveTitle = async () => {
+    if (!shop || !editTitleValue.trim()) {
+      Alert.alert('Error', 'Title cannot be empty');
+      return;
+    }
+
+    const trimmedTitle = editTitleValue.trim();
+    const originalTitle = shop.title;
+    
+    // Optimistic update
+    updateShop(shop.id, { title: trimmedTitle });
+    setIsEditTitleVisible(false);
+
+    try {
+      // Update in database
+      await shopService.updateShop(shop.id, { title: trimmedTitle });
+    } catch (error) {
+      // Revert on error
+      updateShop(shop.id, { title: originalTitle });
+      Alert.alert('Error', 'Failed to update title');
+      setIsEditTitleVisible(true);
+      setEditTitleValue(trimmedTitle);
+    }
+  };
+
+  const handleCancelEditTitle = () => {
+    setIsEditTitleVisible(false);
+    setEditTitleValue('');
   };
 
   const handleFavoriteToggle = async () => {
@@ -306,6 +345,41 @@ export default function ShopDetailScreen() {
 
       {/* Action Buttons */}
       <ActionButtons shopId={shop.id} onDone={handleDone} />
+
+      {/* Edit Title Modal */}
+      <CenteredModal isVisible={isEditTitleVisible} onClose={handleCancelEditTitle}>
+        <View className="p-6">
+          <Text className="text-[20px] font-inter-semibold text-foreground mb-4">
+            Edit Title
+          </Text>
+          <TextInput
+            value={editTitleValue}
+            onChangeText={setEditTitleValue}
+            placeholder="Enter shop title"
+            placeholderTextColor="#9CA3AF"
+            className="border border-border-light rounded-xl px-4 py-3 text-[16px] font-inter text-foreground bg-card mb-4"
+            autoFocus
+            multiline
+            maxLength={200}
+          />
+          <View className="flex-row justify-end gap-3">
+            <TouchableOpacity
+              onPress={handleCancelEditTitle}
+              className="px-6 py-3 rounded-xl">
+              <Text className="text-[16px] font-inter-medium text-foreground-muted">
+                Cancel
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleSaveTitle}
+              className="px-6 py-3 bg-foreground rounded-xl">
+              <Text className="text-[16px] font-inter-medium text-background">
+                Save
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </CenteredModal>
     </View>
   );
 }
