@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import { IconButton } from '@/components/ui/IconButton';
-import { ProfileCard, SettingsSection } from '@/components/profile';
+import { ProfileCard, SettingsSection, RatingModal } from '@/components/profile';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
 import type { SettingsSection as SettingsSectionType } from '@/types';
@@ -12,6 +12,7 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { profile, signOut, deleteAccount, refreshProfile, user } = useAuth();
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRatingModalVisible, setIsRatingModalVisible] = useState(false);
 
   const handleEditProfile = () => {
     router.push('/(app)/edit-profile');
@@ -98,8 +99,7 @@ export default function ProfileScreen() {
   };
 
   const handleRateUs = () => {
-    // TODO: Implement app store rating when app is published
-    Alert.alert('Coming Soon', 'Rate us feature will be available once the app is published on the App Store.');
+    setIsRatingModalVisible(true);
   };
 
   const handleLogout = () => {
@@ -342,6 +342,14 @@ export default function ProfileScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      {/* Rating Modal */}
+      <RatingModal
+        isVisible={isRatingModalVisible}
+        onClose={() => setIsRatingModalVisible(false)}
+        userEmail={profile?.email || user?.email}
+        userName={profile?.name || 'User'}
+      />
     </View>
   );
 }

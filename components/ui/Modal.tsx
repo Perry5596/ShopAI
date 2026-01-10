@@ -9,7 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useEffect } from 'react';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface BottomSheetModalProps {
   isVisible: boolean;
@@ -72,6 +72,75 @@ export function BottomSheetModal({
         </View>
         {children}
       </Animated.View>
+    </View>
+  );
+}
+
+interface CenteredModalProps {
+  isVisible: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+  width?: number;
+}
+
+export function CenteredModal({
+  isVisible,
+  onClose,
+  children,
+  width = SCREEN_WIDTH * 0.8,
+}: CenteredModalProps) {
+  const scale = useSharedValue(0);
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    if (isVisible) {
+      scale.value = withTiming(1, { duration: 200 });
+      opacity.value = withTiming(1, { duration: 200 });
+    } else {
+      scale.value = withTiming(0, { duration: 200 });
+      opacity.value = withTiming(0, { duration: 200 });
+    }
+  }, [isVisible]);
+
+  const animatedModalStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+
+  const animatedBackdropStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value * 0.4,
+  }));
+
+  if (!isVisible) return null;
+
+  return (
+    <View className="absolute inset-0 z-50">
+      <Animated.View style={[{ flex: 1 }, animatedBackdropStyle]}>
+        <Pressable onPress={onClose} className="flex-1">
+          <View className="flex-1 bg-black" />
+        </Pressable>
+      </Animated.View>
+
+      <View className="absolute inset-0 items-center justify-center px-5">
+        <Pressable onPress={(e) => e.stopPropagation()}>
+          <Animated.View
+            style={[
+              {
+                width,
+                maxWidth: 320,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 12,
+                elevation: 8,
+              },
+              animatedModalStyle,
+            ]}
+            className="bg-background rounded-2xl overflow-hidden">
+            {children}
+          </Animated.View>
+        </Pressable>
+      </View>
     </View>
   );
 }
