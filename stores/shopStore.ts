@@ -174,9 +174,10 @@ export const useShopStore = create<ShopState>((set, get) => ({
   completeShopProcessing: async (shopId: string, userId: string, result: SnapResult) => {
     try {
       // Create products in database with recommended flag
+      // Use the isRecommended from the product if set, otherwise fall back to recommendedIndex
       const productsToCreate = result.products.map((p, index) => ({
         ...p,
-        isRecommended: index === result.recommendedIndex,
+        isRecommended: p.isRecommended ?? (index === result.recommendedIndex),
       }));
 
       const createdProducts = await productService.createProducts(shopId, productsToCreate);
@@ -330,9 +331,10 @@ async function reprocessImageInBackground(
 async function reprocessCompleteShopProcessing(shopId: string, result: SnapResult): Promise<void> {
   try {
     // Create products in database with recommended flag
+    // Use the isRecommended from the product if set, otherwise fall back to recommendedIndex
     const productsToCreate = result.products.map((p, index) => ({
       ...p,
-      isRecommended: index === result.recommendedIndex,
+      isRecommended: p.isRecommended ?? (index === result.recommendedIndex),
     }));
 
     const createdProducts = await productService.createProducts(shopId, productsToCreate);

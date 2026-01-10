@@ -147,23 +147,63 @@ async function searchProducts(query: string, apiKey: string): Promise<CSEResult[
 }
 
 /**
- * Step 3: Select the best (first) result for each retailer domain.
- * Google CSE returns results ranked by relevance, so first match per domain is best.
+ * Check if a URL looks like a search results page rather than a direct product page.
+ */
+function isSearchResultsPage(url: string): boolean {
+  const searchPatterns = [
+    '/s?',        // Amazon search
+    '/s/',        // Amazon search
+    '/sch/',      // eBay search
+    '/search',    // Generic search
+    '/browse/',   // Category browse
+    'k=',         // Amazon keyword param
+    'query=',     // Generic query param
+    '_nkw=',      // eBay keyword param
+  ];
+  
+  const urlLower = url.toLowerCase();
+  return searchPatterns.some(pattern => urlLower.includes(pattern));
+}
+
+/**
+ * Step 3: Select the best result for each retailer domain.
+ * Prioritizes direct product links over search result pages.
  */
 function selectBestPerRetailer(results: CSEResult[]): Map<string, CSEResult> {
-  const selected = new Map<string, CSEResult>();
+  const productLinks = new Map<string, CSEResult>();  // Direct product pages
+  const searchLinks = new Map<string, CSEResult>();   // Search/browse pages (fallback)
 
   for (const result of results) {
     try {
       const hostname = new URL(result.link).hostname.replace('www.', '').toLowerCase();
       const retailer = RETAILER_DOMAINS.find((r) => hostname.includes(r));
 
-      if (retailer && !selected.has(retailer)) {
-        selected.set(retailer, result);
+      if (!retailer) continue;
+
+      const isSearch = isSearchResultsPage(result.link);
+
+      if (isSearch) {
+        // Store as fallback if we don't have one yet
+        if (!searchLinks.has(retailer)) {
+          searchLinks.set(retailer, result);
+        }
+      } else {
+        // Direct product link - prioritize these
+        if (!productLinks.has(retailer)) {
+          productLinks.set(retailer, result);
+        }
       }
     } catch {
       // Skip invalid URLs
       continue;
+    }
+  }
+
+  // Merge: use product links first, fill gaps with search links
+  const selected = new Map<string, CSEResult>(productLinks);
+  for (const [retailer, result] of searchLinks) {
+    if (!selected.has(retailer)) {
+      selected.set(retailer, result);
     }
   }
 
