@@ -10,6 +10,7 @@ import { supabase } from './supabase';
  * Analyzes an image and returns product recommendations with affiliate links.
  *
  * @param imageUrl - The URL of the image to analyze (must be publicly accessible)
+ * @param additionalContext - Optional additional context from the user to help identify the product
  * @returns SnapResult with title, description, products, and recommended index
  *
  * @example
@@ -17,12 +18,16 @@ import { supabase } from './supabase';
  * // result.title = 'Nike Air Max 90'
  * // result.products = [{ title: 'Nike Air Max 90', price: '$129.99', affiliateUrl: '...', ... }]
  * // result.recommendedIndex = 0
+ *
+ * @example
+ * // With additional context for reprocessing
+ * const result = await analyzeImage('https://example.com/photo.jpg', 'This is actually an Adidas shoe, not Nike');
  */
-export async function analyzeImage(imageUrl: string): Promise<SnapResult> {
-  console.log('Calling analyze-product edge function with imageUrl:', imageUrl);
+export async function analyzeImage(imageUrl: string, additionalContext?: string): Promise<SnapResult> {
+  console.log('Calling analyze-product edge function with imageUrl:', imageUrl, 'additionalContext:', additionalContext);
   
   const { data, error } = await supabase.functions.invoke('analyze-product', {
-    body: { imageUrl },
+    body: { imageUrl, additionalContext },
   });
 
   console.log('Edge function response - data:', data, 'error:', error);

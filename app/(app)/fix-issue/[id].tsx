@@ -1,4 +1,4 @@
-import { View, Text, TextInput, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, TextInput, KeyboardAvoidingView, Platform, ScrollView, Alert, Image } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState } from 'react';
@@ -6,6 +6,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { IconButton } from '@/components/ui/IconButton';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { useShopStore } from '@/stores';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function FixIssueScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -13,17 +15,32 @@ export default function FixIssueScreen() {
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const { getShopById, reprocessShop } = useShopStore();
+  const { user } = useAuth();
+  const shop = getShopById(id || '');
+
   const handleUpdate = async () => {
     if (!description.trim()) return;
+    if (!id || !user?.id) {
+      Alert.alert('Error', 'Unable to reprocess. Please try again.');
+      return;
+    }
+    if (!shop) {
+      Alert.alert('Error', 'Shop not found. Please go back and try again.');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
-      // TODO: Submit fix request to API
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate API call
+      await reprocessShop(id, user.id, description.trim());
+      // Navigate back to the shop detail screen - it will show processing state
       router.back();
     } catch (error) {
-      // Handle error
-    } finally {
+      console.error('Failed to reprocess shop:', error);
+      Alert.alert(
+        'Error',
+        error instanceof Error ? error.message : 'Failed to reprocess. Please try again.'
+      );
       setIsSubmitting(false);
     }
   };
@@ -54,6 +71,27 @@ export default function FixIssueScreen() {
       <ScrollView
         className="flex-1 px-5 pt-6"
         keyboardShouldPersistTaps="handled">
+        {/* Image Preview */}
+        {shop?.imageUrl && (
+          <View className="mb-6">
+            <Text className="text-[14px] font-medium text-foreground mb-2">
+              Original Image
+            </Text>
+            <View className="rounded-2xl overflow-hidden bg-background-secondary">
+              <Image
+                source={{ uri: shop.imageUrl }}
+                className="w-full h-40"
+                resizeMode="cover"
+              />
+            </View>
+            {shop.title && shop.title !== 'Processing...' && (
+              <Text className="text-[12px] text-foreground-muted mt-2">
+                Currently identified as: {shop.title}
+              </Text>
+            )}
+          </View>
+        )}
+
         {/* Description Input */}
         <TextInput
           className="bg-background-secondary rounded-2xl p-4 text-[16px] text-foreground min-h-[120px]"
@@ -110,17 +148,17 @@ export default function FixIssueScreen() {
         </View>
       </ScrollView>
 
-      {/* Update Button */}
+      {/* Reanalyze Button */}
       <View
         className="px-5 border-t border-border-light"
         style={{ paddingTop: 16, paddingBottom: insets.bottom + 16 }}>
         <Button
-          title="Update"
+          title="Reanalyze"
           variant="primary"
           size="lg"
           fullWidth
           isLoading={isSubmitting}
-          disabled={!description.trim()}
+          disabled={!description.trim() || !shop}
           onPress={handleUpdate}
         />
       </View>

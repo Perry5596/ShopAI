@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { shopService, productService, profileService } from '@/utils/supabase-service';
+import { analyzeImage } from '@/utils/mock-ai-service';
 import type { Shop, SnapResult } from '@/types';
 
 /**
@@ -45,6 +46,9 @@ interface ShopState {
   // Process shop results (called when AI/dummy data returns)
   completeShopProcessing: (shopId: string, userId: string, result: SnapResult) => Promise<void>;
   failShopProcessing: (shopId: string, error: string) => Promise<void>;
+
+  // Reprocess shop with additional context (for "fix issue" feature)
+  reprocessShop: (shopId: string, userId: string, additionalContext: string) => Promise<void>;
 
   // Reset state
   reset: () => void;
@@ -242,7 +246,129 @@ export const useShopStore = create<ShopState>((set, get) => ({
     }));
   },
 
+  reprocessShop: async (shopId: string, userId: string, additionalContext: string) => {
+    const shop = get().getShopById(shopId);
+    if (!shop) {
+      throw new Error('Shop not found');
+    }
+
+    try {
+      // Step 1: Delete existing products for this shop
+      await productService.deleteProductsByShopId(shopId);
+
+      // Step 2: Update shop status to processing
+      await shopService.updateShop(shopId, {
+        status: 'processing',
+        description: 'Reanalyzing with additional context...',
+      });
+
+      // Step 3: Update local state immediately
+      set((state) => ({
+        shops: state.shops.map((s) =>
+          s.id === shopId
+            ? {
+                ...s,
+                status: 'processing' as const,
+                description: 'Reanalyzing with additional context...',
+                products: [],
+                recommendation: undefined,
+                updatedAt: new Date().toISOString(),
+              }
+            : s
+        ),
+      }));
+
+      // Step 4: Reprocess in background with additional context
+      reprocessImageInBackground(shopId, userId, shop.imageUrl, additionalContext);
+    } catch (error) {
+      console.error('Failed to start shop reprocessing:', error);
+      throw error;
+    }
+  },
+
   reset: () => {
     set({ shops: [], isLoading: false, isLoadingMore: false, hasMore: true, error: null });
   },
 }));
+
+/**
+ * Reprocess image in background with additional context.
+ * This runs asynchronously after the user has submitted the fix request.
+ */
+async function reprocessImageInBackground(
+  shopId: string,
+  userId: string,
+  imageUrl: string,
+  additionalContext: string
+): Promise<void> {
+  const shopStore = useShopStore.getState();
+
+  try {
+    // Call the AI service with additional context
+    const result = await analyzeImage(imageUrl, additionalContext);
+
+    // Complete the shop processing with the results
+    // Note: We don't increment stats again since this is a reprocess, not a new shop
+    await reprocessCompleteShopProcessing(shopId, result);
+  } catch (error) {
+    console.error('Background image reprocessing failed:', error);
+    await shopStore.failShopProcessing(
+      shopId,
+      error instanceof Error ? error.message : 'Failed to reanalyze image'
+    );
+  }
+}
+
+/**
+ * Complete shop processing for a reprocess (doesn't increment user stats).
+ */
+async function reprocessCompleteShopProcessing(shopId: string, result: SnapResult): Promise<void> {
+  try {
+    // Create products in database with recommended flag
+    const productsToCreate = result.products.map((p, index) => ({
+      ...p,
+      isRecommended: index === result.recommendedIndex,
+    }));
+
+    const createdProducts = await productService.createProducts(shopId, productsToCreate);
+
+    // Calculate savings (average - lowest price in cents)
+    const prices = result.products.map((p) => parsePriceToCents(p.price));
+    const savings = calculateSavings(prices);
+
+    // Update shop in database with savings
+    await shopService.updateShop(shopId, {
+      title: result.title,
+      description: result.description,
+      status: 'completed',
+      savings,
+    });
+
+    // Find the recommendation
+    const recommendation = createdProducts.find((p) => p.isRecommended);
+
+    // Update local state
+    useShopStore.setState((state) => ({
+      shops: state.shops.map((shop) =>
+        shop.id === shopId
+          ? {
+              ...shop,
+              title: result.title,
+              description: result.description,
+              status: 'completed' as const,
+              savings,
+              products: createdProducts,
+              recommendation,
+              updatedAt: new Date().toISOString(),
+            }
+          : shop
+      ),
+    }));
+  } catch (error) {
+    console.error('Failed to complete shop reprocessing:', error);
+    await useShopStore.getState().failShopProcessing(
+      shopId,
+      error instanceof Error ? error.message : 'Failed to save results'
+    );
+  }
+}

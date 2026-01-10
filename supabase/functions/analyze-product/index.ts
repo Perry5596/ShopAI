@@ -28,7 +28,7 @@ serve(async (req) => {
   }
 
   try {
-    const { imageUrl } = await req.json();
+    const { imageUrl, additionalContext } = await req.json();
     if (!imageUrl) {
       return new Response(JSON.stringify({ error: 'imageUrl is required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
@@ -36,18 +36,24 @@ serve(async (req) => {
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openaiApiKey) throw new Error('OPENAI_API_KEY is not configured');
 
+    // Build the user prompt - include additional context if provided
+    let userPrompt = 'What product is this? Find it online.';
+    if (additionalContext && typeof additionalContext === 'string' && additionalContext.trim()) {
+      userPrompt = `What product is this? Find it online. Additional context from the user: "${additionalContext.trim()}"`;
+    }
+
     const response = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: { Authorization: `Bearer ${openaiApiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'gpt-5-mini',
-        reasoning: { effort: 'low' },
+        reasoning: { effort: 'minimal' },
         tools: [{ type: 'web_search', filters: { allowed_domains: AFFILIATE_DOMAINS } }],
         tool_choice: 'required',
         input: [
           { role: 'system', content: 'Identify the product. Search online. Return JSON: {"productName":"name","description":"desc","products":[{"title":"t","price":"$X","url":"url"}],"recommendedIndex":0}. One product per store. Real URLs only.' },
           { role: 'user', content: [
-            { type: 'input_text', text: 'What product is this? Find it online.' },
+            { type: 'input_text', text: userPrompt },
             { type: 'input_image', image_url: imageUrl }
           ]}
         ],
