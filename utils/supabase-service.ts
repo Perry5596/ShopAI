@@ -27,6 +27,7 @@ function dbShopToShop(dbShop: DbShop, products: ProductLink[] = []): Shop {
     isFavorite: dbShop.is_favorite,
     status: dbShop.status,
     savings: dbShop.savings ?? 0,
+    sessionId: dbShop.session_id ?? undefined,
     products,
     recommendation,
   };
@@ -257,6 +258,7 @@ export const shopService = {
       status: ShopStatus;
       imageUrl: string;
       savings: number;
+      sessionId: string;
     }>
   ): Promise<Shop> {
     const updateData: Record<string, unknown> = {
@@ -269,6 +271,7 @@ export const shopService = {
     if (updates.status !== undefined) updateData.status = updates.status;
     if (updates.imageUrl !== undefined) updateData.image_url = updates.imageUrl;
     if (updates.savings !== undefined) updateData.savings = updates.savings;
+    if (updates.sessionId !== undefined) updateData.session_id = updates.sessionId;
 
     const { data, error } = await supabase
       .from('shops')

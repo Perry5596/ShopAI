@@ -6,23 +6,35 @@ import { supabase } from './supabase';
  * Uses GPT-5 Nano with web search to identify products and find purchase links.
  */
 
+// Extended result type that includes session ID for tracking
+export interface AnalyzeResult extends SnapResult {
+  sessionId?: string;
+}
+
 /**
  * Analyzes an image and returns product recommendations with affiliate links.
  *
  * @param imageUrl - The URL of the image to analyze (must be publicly accessible)
+ * @param shopId - Optional shop ID for session tracking (Phase 0+)
+ * @param userId - Optional user ID for session tracking (Phase 0+)
  * @returns SnapResult with title, description, products, and recommended index
  *
  * @example
- * const result = await analyzeImage('https://example.com/photo.jpg');
+ * const result = await analyzeImage('https://example.com/photo.jpg', 'shop-123', 'user-456');
  * // result.title = 'Nike Air Max 90'
  * // result.products = [{ title: 'Nike Air Max 90', price: '$129.99', affiliateUrl: '...', ... }]
  * // result.recommendedIndex = 0
+ * // result.sessionId = 'sess_abc123' (for debugging)
  */
-export async function analyzeImage(imageUrl: string): Promise<SnapResult> {
+export async function analyzeImage(
+  imageUrl: string,
+  shopId?: string,
+  userId?: string
+): Promise<AnalyzeResult> {
   console.log('Calling analyze-product edge function with imageUrl:', imageUrl);
   
   const { data, error } = await supabase.functions.invoke('analyze-product', {
-    body: { imageUrl },
+    body: { imageUrl, shopId, userId },
   });
 
   console.log('Edge function response - data:', data, 'error:', error);
@@ -49,7 +61,12 @@ export async function analyzeImage(imageUrl: string): Promise<SnapResult> {
     throw new Error('Invalid response from AI service');
   }
 
-  return data as SnapResult;
+  // Log session ID if present (for debugging)
+  if (data.sessionId) {
+    console.log('Session ID for debugging:', data.sessionId);
+  }
+
+  return data as AnalyzeResult;
 }
 
 /**
