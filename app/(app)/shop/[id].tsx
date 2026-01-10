@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { ShopHeader, ProductImage, ProductLinks, ActionButtons } from '@/components/shop';
 import { Badge } from '@/components/ui/Badge';
+import { CircularProgress } from '@/components/ui/CircularProgress';
 import { useShopStore } from '@/stores';
 import { useAuth } from '@/contexts/AuthContext';
 import { shopService } from '@/utils/supabase-service';
@@ -202,7 +203,7 @@ export default function ShopDetailScreen() {
           
           <View className="bg-background rounded-t-3xl -mt-6 pt-5 px-5">
             <View className="items-center py-8">
-              <ActivityIndicator size="large" color="#000000" />
+              <CircularProgress size={80} strokeWidth={6} color="#000000" backgroundColor="#E5E7EB" textColor="#000000" duration={10000} startTime={shop.createdAt} />
               <Text className="text-[18px] font-inter-semibold text-foreground mt-4">
                 Analyzing your image...
               </Text>

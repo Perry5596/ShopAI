@@ -1,6 +1,9 @@
-import { View, Text, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { CircularProgress } from '@/components/ui/CircularProgress';
+import { useAuth } from '@/contexts/AuthContext';
+import { useShopStore } from '@/stores';
 import type { Shop } from '@/types';
 
 interface RecentShopsProps {
@@ -10,6 +13,9 @@ interface RecentShopsProps {
 }
 
 function ShopItem({ shop }: { shop: Shop }) {
+  const { user } = useAuth();
+  const { deleteShop } = useShopStore();
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -36,6 +42,29 @@ function ShopItem({ shop }: { shop: Shop }) {
     }
   };
 
+  const handleLongPress = () => {
+    if (!shop || !user?.id) return;
+    Alert.alert(
+      'Options',
+      '',
+      [
+        { text: 'Edit Title', onPress: () => Alert.alert('Edit Title') },
+        { 
+          text: 'Delete Shop', 
+          style: 'destructive', 
+          onPress: async () => {
+            try {
+              await deleteShop(shop.id, user.id);
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete shop');
+            }
+          }
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
   const isProcessing = shop.status === 'processing';
   const isFailed = shop.status === 'failed';
 
@@ -44,6 +73,7 @@ function ShopItem({ shop }: { shop: Shop }) {
       className="flex-row bg-card rounded-2xl overflow-hidden mb-3"
       activeOpacity={0.7}
       onPress={() => router.push(`/(app)/shop/${shop.id}`)}
+      onLongPress={handleLongPress}
       style={{
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
@@ -63,7 +93,7 @@ function ShopItem({ shop }: { shop: Shop }) {
             {/* Processing overlay */}
             {isProcessing && (
               <View className="absolute inset-0 bg-black/40 items-center justify-center">
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <CircularProgress size={40} strokeWidth={3} color="#FFFFFF" backgroundColor="rgba(255, 255, 255, 0.3)" textColor="#FFFFFF" duration={10000} startTime={shop.createdAt} />
               </View>
             )}
             {/* Failed overlay */}
