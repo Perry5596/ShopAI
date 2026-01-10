@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
 interface ZoomControlsProps {
@@ -10,15 +10,6 @@ export function ZoomControls({ currentZoom, onZoomChange }: ZoomControlsProps) {
   const handleZoomChange = (zoom: 0.5 | 1) => {
     if (zoom !== currentZoom) {
       Haptics.selectionAsync();
-      
-      // Note: 0.5x (ultra-wide) lens requires native camera module access
-      // expo-camera doesn't support switching between camera lenses
-      // In production, use react-native-vision-camera for this feature
-      if (zoom === 0.5 && Platform.OS !== 'web') {
-        // Still allow the UI toggle for visual feedback
-        // In Expo Go, both will use the same lens
-      }
-      
       onZoomChange(zoom);
     }
   };

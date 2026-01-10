@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView as ExpoCameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { IconButton } from '@/components/ui/IconButton';
 import { Button } from '@/components/ui/Button';
 import { CameraView, CameraControls, ZoomControls } from '@/components/snap';
@@ -17,12 +17,18 @@ export default function SnapScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   
   const [isFlashOn, setIsFlashOn] = useState(false);
-  const [zoom, setZoom] = useState<0.5 | 1>(1);
+  const [zoomLevel, setZoomLevel] = useState<0.5 | 1>(1); // Button-selected zoom (0.5x or 1x)
+  const [continuousZoom, setContinuousZoom] = useState(0); // 0-1 for pinch-to-zoom
   const [isCapturing, setIsCapturing] = useState(false);
   const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
 
   const { captureAndProcess } = useSnapStore();
   const { user, profile } = useAuth();
+
+  // Handler for pinch-to-zoom
+  const handlePinchZoom = useCallback((newZoom: number) => {
+    setContinuousZoom(Math.max(0, Math.min(1, newZoom)));
+  }, []);
 
   // Handle permissions
   if (!permission) {
@@ -161,7 +167,9 @@ export default function SnapScreen() {
   };
 
   const handleZoomChange = (newZoom: 0.5 | 1) => {
-    setZoom(newZoom);
+    setZoomLevel(newZoom);
+    // Reset continuous zoom when switching between 0.5x and 1x
+    setContinuousZoom(0);
   };
 
   const handleHelp = () => {
@@ -197,8 +205,10 @@ export default function SnapScreen() {
         <CameraView
           ref={cameraRef}
           facing="back"
-          zoomLevel={zoom}
+          zoomLevel={zoomLevel}
+          continuousZoom={continuousZoom}
           enableTorch={isFlashOn}
+          onPinchZoom={handlePinchZoom}
         />
       )}
 
@@ -235,7 +245,7 @@ export default function SnapScreen() {
           className="absolute left-0 right-0"
           style={{ bottom: insets.bottom + 16 }}>
           {/* Zoom Controls */}
-          <ZoomControls currentZoom={zoom} onZoomChange={handleZoomChange} />
+          <ZoomControls currentZoom={zoomLevel} onZoomChange={handleZoomChange} />
 
           {/* Camera Controls */}
           <CameraControls
