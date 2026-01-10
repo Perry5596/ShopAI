@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, Alert } from 'react-native';
+import { View, Text, ScrollView, Alert, Linking } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconButton } from '@/components/ui/IconButton';
@@ -9,11 +9,96 @@ import type { SettingsSection as SettingsSectionType } from '@/types';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { profile, signOut, deleteAccount } = useAuth();
+  const { profile, signOut, deleteAccount, refreshProfile, user } = useAuth();
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleEditProfile = () => {
-    Alert.alert('Edit Profile', 'Profile editing would open here');
+    router.push('/(app)/edit-profile');
+  };
+
+  const handleShoppingPreferences = () => {
+    Alert.alert('Coming Soon', 'Shopping preferences will be available soon!');
+  };
+
+  const handleLanguage = () => {
+    Alert.alert('Coming Soon', 'Language selection will be available soon!');
+  };
+
+  const handlePreferences = () => {
+    Alert.alert('Coming Soon', 'Preferences will be available soon!');
+  };
+
+  const handleSavedItems = () => {
+    router.push('/(app)/saved-items');
+  };
+
+  const handleTerms = async () => {
+    const url = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+    const canOpen = await Linking.canOpenURL(url);
+    if (canOpen) {
+      await Linking.openURL(url);
+    } else {
+      Alert.alert('Error', 'Unable to open the Terms and Conditions page.');
+    }
+  };
+
+  const handlePrivacy = async () => {
+    const url = 'https://luminasoftware.app/privacy';
+    const canOpen = await Linking.canOpenURL(url);
+    if (canOpen) {
+      await Linking.openURL(url);
+    } else {
+      Alert.alert('Error', 'Unable to open the Privacy Policy page.');
+    }
+  };
+
+  const handleSyncData = async () => {
+    try {
+      await refreshProfile();
+      Alert.alert('Success', 'Your data has been synced.');
+    } catch (error) {
+      console.error('Sync error:', error);
+      Alert.alert('Error', 'Failed to sync data. Please try again.');
+    }
+  };
+
+  const handleRequestFeature = async () => {
+    const email = profile?.email || user?.email || 'user@example.com';
+    const name = profile?.name || 'User';
+    const subject = encodeURIComponent('Feature Request - Shop AI');
+    const body = encodeURIComponent(
+      `Hi Shop AI Team,\n\nI would like to request the following feature:\n\n[Please describe your feature request here]\n\n---\nUser Information:\nName: ${name}\nEmail: ${email}\nUser ID: ${user?.id || 'N/A'}\n\nThank you!`
+    );
+    const mailtoUrl = `mailto:support@luminasoftware.app?subject=${subject}&body=${body}`;
+    
+    const canOpen = await Linking.canOpenURL(mailtoUrl);
+    if (canOpen) {
+      await Linking.openURL(mailtoUrl);
+    } else {
+      Alert.alert('Error', 'Unable to open email client. Please contact support@luminasoftware.app directly.');
+    }
+  };
+
+  const handleSupportEmail = async () => {
+    const email = profile?.email || user?.email || 'user@example.com';
+    const name = profile?.name || 'User';
+    const subject = encodeURIComponent('Support Request - Shop AI');
+    const body = encodeURIComponent(
+      `Hi Shop AI Support,\n\nI need help with the following:\n\n[Please describe your issue or question here]\n\n---\nUser Information:\nName: ${name}\nEmail: ${email}\nUser ID: ${user?.id || 'N/A'}\n\nThank you!`
+    );
+    const mailtoUrl = `mailto:support@luminasoftware.app?subject=${subject}&body=${body}`;
+    
+    const canOpen = await Linking.canOpenURL(mailtoUrl);
+    if (canOpen) {
+      await Linking.openURL(mailtoUrl);
+    } else {
+      Alert.alert('Error', 'Unable to open email client. Please contact support@luminasoftware.app directly.');
+    }
+  };
+
+  const handleRateUs = () => {
+    // TODO: Implement app store rating when app is published
+    Alert.alert('Coming Soon', 'Rate us feature will be available once the app is published on the App Store.');
   };
 
   const handleLogout = () => {
@@ -83,31 +168,26 @@ export default function ProfileScreen() {
     );
   };
 
-  // Generate username from email
-  const username = profile?.email?.split('@')[0] || 'user';
+  // Generate username from email or use profile username
+  const username = profile?.username || profile?.email?.split('@')[0] || 'user';
 
   const settingsSections: SettingsSectionType[] = [
     {
       title: 'Account',
       items: [
         {
-          id: 'personal-details',
-          icon: 'person-outline',
-          title: 'Personal Details',
-          onPress: () => Alert.alert('Personal Details'),
-        },
-        {
           id: 'preferences',
           icon: 'settings-outline',
           title: 'Preferences',
-          onPress: () => Alert.alert('Preferences'),
+          subtitle: 'Coming Soon',
+          onPress: handlePreferences,
         },
         {
           id: 'language',
           icon: 'language-outline',
           title: 'Language',
           subtitle: 'English',
-          onPress: () => Alert.alert('Language'),
+          onPress: handleLanguage,
         },
       ],
     },
@@ -118,13 +198,13 @@ export default function ProfileScreen() {
           id: 'saved-items',
           icon: 'bookmark-outline',
           title: 'Saved Items',
-          onPress: () => Alert.alert('Saved Items'),
+          onPress: handleSavedItems,
         },
         {
           id: 'shopping-preferences',
           icon: 'bag-outline',
           title: 'Shopping Preferences',
-          onPress: () => Alert.alert('Shopping Preferences'),
+          onPress: handleShoppingPreferences,
         },
       ],
     },
@@ -132,28 +212,34 @@ export default function ProfileScreen() {
       title: 'Support & Legal',
       items: [
         {
+          id: 'rate-us',
+          icon: 'star-outline',
+          title: 'Rate Us',
+          onPress: handleRateUs,
+        },
+        {
           id: 'request-feature',
           icon: 'bulb-outline',
           title: 'Request a Feature',
-          onPress: () => Alert.alert('Request a Feature'),
+          onPress: handleRequestFeature,
         },
         {
           id: 'support-email',
           icon: 'mail-outline',
           title: 'Support Email',
-          onPress: () => Alert.alert('Support Email'),
+          onPress: handleSupportEmail,
         },
         {
           id: 'terms',
           icon: 'document-text-outline',
           title: 'Terms and Conditions',
-          onPress: () => Alert.alert('Terms and Conditions'),
+          onPress: handleTerms,
         },
         {
           id: 'privacy',
           icon: 'shield-checkmark-outline',
           title: 'Privacy Policy',
-          onPress: () => Alert.alert('Privacy Policy'),
+          onPress: handlePrivacy,
         },
       ],
     },
@@ -181,7 +267,7 @@ export default function ProfileScreen() {
           id: 'sync-data',
           icon: 'sync-outline',
           title: 'Sync Data',
-          onPress: () => Alert.alert('Sync Data'),
+          onPress: handleSyncData,
         },
         {
           id: 'logout',

@@ -294,6 +294,60 @@ export const shopService = {
 
     if (error) throw error;
   },
+
+  /**
+   * Fetch user's favorited shops
+   * @param userId - User ID to fetch favorited shops for
+   * @param limit - Number of shops to fetch (default 50)
+   * @param offset - Number of shops to skip (default 0)
+   * @returns Object containing shops array and hasMore boolean
+   */
+  async fetchFavoriteShops(
+    userId: string,
+    limit = 50,
+    offset = 0
+  ): Promise<{ shops: Shop[]; hasMore: boolean }> {
+    // Fetch favorited shops with limit + 1 to check if there are more
+    const { data: shopsData, error: shopsError } = await supabase
+      .from('shops')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('is_favorite', true)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit);
+
+    if (shopsError) throw shopsError;
+    if (!shopsData || shopsData.length === 0) return { shops: [], hasMore: false };
+
+    // Check if there are more items
+    const hasMore = shopsData.length > limit;
+    const shopsToProcess = hasMore ? shopsData.slice(0, limit) : shopsData;
+
+    // Fetch all products for these shops
+    const shopIds = shopsToProcess.map((s) => s.id);
+    const { data: productsData, error: productsError } = await supabase
+      .from('products')
+      .select('*')
+      .in('shop_id', shopIds);
+
+    if (productsError) throw productsError;
+
+    // Group products by shop_id
+    const productsByShopId: Record<string, ProductLink[]> = {};
+    (productsData as DbProduct[])?.forEach((p) => {
+      if (!productsByShopId[p.shop_id]) {
+        productsByShopId[p.shop_id] = [];
+      }
+      productsByShopId[p.shop_id].push(dbProductToProductLink(p));
+    });
+
+    // Convert to Shop objects
+    const shops = (shopsToProcess as DbShop[]).map((dbShop) =>
+      dbShopToShop(dbShop, productsByShopId[dbShop.id] || [])
+    );
+
+    return { shops, hasMore };
+  },
 };
 
 // ============================================================================
@@ -398,6 +452,36 @@ export const storageService = {
     const {
       data: { publicUrl },
     } = supabase.storage.from('shop-images').getPublicUrl(filePath);
+    return publicUrl;
+  },
+
+  async uploadProfileAvatar(userId: string, uri: string): Promise<string> {
+    // Create a File instance from the URI (expo-file-system)
+    const file = new File(uri);
+
+    // Read file as ArrayBuffer
+    const arrayBuffer = await file.arrayBuffer();
+
+    // Determine file extension and content type
+    const fileExt = file.extension?.replace('.', '') || 'jpg';
+    const contentType = fileExt === 'png' ? 'image/png' : 'image/jpeg';
+    const filePath = `${userId}/profile/avatar.${fileExt}`;
+
+    // Upload to Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from('shop-images')
+      .upload(filePath, arrayBuffer, {
+        contentType,
+        upsert: true,
+      });
+
+    if (uploadError) throw uploadError;
+
+    // Get public URL
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from('shop-images').getPublicUrl(filePath);
+
     return publicUrl;
   },
 };
