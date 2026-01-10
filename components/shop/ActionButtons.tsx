@@ -46,7 +46,7 @@ export function ActionButtons({ shopId, onDone }: ActionButtonsProps) {
       </View>
       {/* Affiliate Disclaimer */}
       <Text className="text-[10px] font-inter text-foreground-subtle text-center px-5 pt-2 pb-1">
-        Some links may be affiliate links. We may receive a commission at no extra cost to you.
+        We may earn a commission from some links.
       </Text>
     </View>
   );
