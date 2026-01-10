@@ -60,6 +60,11 @@ function dbProfileToUserProfile(dbProfile: DbProfile): UserProfile {
     totalShops: dbProfile.total_shops ?? 0,
     totalProducts: dbProfile.total_products ?? 0,
     totalSavings: dbProfile.total_savings ?? 0,
+    favoriteAmazon: dbProfile.favorite_amazon ?? false,
+    favoriteTarget: dbProfile.favorite_target ?? false,
+    favoriteBestBuy: dbProfile.favorite_best_buy ?? false,
+    favoriteWalmart: dbProfile.favorite_walmart ?? false,
+    favoriteEbay: dbProfile.favorite_ebay ?? false,
     createdAt: dbProfile.created_at,
     updatedAt: dbProfile.updated_at,
   };
@@ -101,6 +106,11 @@ export const profileService = {
         username: profile.username,
         avatar_url: profile.avatarUrl,
         is_premium: profile.isPremium,
+        favorite_amazon: profile.favoriteAmazon,
+        favorite_target: profile.favoriteTarget,
+        favorite_best_buy: profile.favoriteBestBuy,
+        favorite_walmart: profile.favoriteWalmart,
+        favorite_ebay: profile.favoriteEbay,
         updated_at: new Date().toISOString(),
       })
       .select()
@@ -139,6 +149,40 @@ export const profileService = {
       .eq('id', userId);
 
     if (updateError) throw updateError;
+  },
+
+  /**
+   * Update favorite stores for a user
+   */
+  async updateFavoriteStores(
+    userId: string,
+    stores: {
+      amazon?: boolean;
+      target?: boolean;
+      bestBuy?: boolean;
+      walmart?: boolean;
+      ebay?: boolean;
+    }
+  ): Promise<UserProfile> {
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (stores.amazon !== undefined) updateData.favorite_amazon = stores.amazon;
+    if (stores.target !== undefined) updateData.favorite_target = stores.target;
+    if (stores.bestBuy !== undefined) updateData.favorite_best_buy = stores.bestBuy;
+    if (stores.walmart !== undefined) updateData.favorite_walmart = stores.walmart;
+    if (stores.ebay !== undefined) updateData.favorite_ebay = stores.ebay;
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(updateData)
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return dbProfileToUserProfile(data as DbProfile);
   },
 };
 

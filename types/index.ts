@@ -14,6 +14,12 @@ export interface UserProfile {
   totalShops: number;
   totalProducts: number;
   totalSavings: number; // in cents to avoid floating point issues
+  // Favorite stores
+  favoriteAmazon?: boolean;
+  favoriteTarget?: boolean;
+  favoriteBestBuy?: boolean;
+  favoriteWalmart?: boolean;
+  favoriteEbay?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -99,6 +105,11 @@ export interface DbProfile {
   total_shops: number;
   total_products: number;
   total_savings: number;
+  favorite_amazon: boolean | null;
+  favorite_target: boolean | null;
+  favorite_best_buy: boolean | null;
+  favorite_walmart: boolean | null;
+  favorite_ebay: boolean | null;
   created_at: string;
   updated_at: string;
 }

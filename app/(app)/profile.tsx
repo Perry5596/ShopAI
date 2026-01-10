@@ -18,16 +18,12 @@ export default function ProfileScreen() {
     router.push('/(app)/edit-profile');
   };
 
-  const handleShoppingPreferences = () => {
-    Alert.alert('Coming Soon', 'Shopping preferences will be available soon!');
-  };
-
   const handleLanguage = () => {
     Alert.alert('Coming Soon', 'Language selection will be available soon!');
   };
 
   const handlePreferences = () => {
-    Alert.alert('Coming Soon', 'Preferences will be available soon!');
+    router.push('/(app)/preferences');
   };
 
   const handleSavedItems = () => {
@@ -184,21 +180,8 @@ export default function ProfileScreen() {
           id: 'preferences',
           icon: 'settings-outline',
           title: 'Preferences',
-          subtitle: 'Coming Soon',
           onPress: handlePreferences,
         },
-        {
-          id: 'language',
-          icon: 'language-outline',
-          title: 'Language',
-          subtitle: 'English',
-          onPress: handleLanguage,
-        },
-      ],
-    },
-    {
-      title: 'Shopping',
-      items: [
         {
           id: 'saved-items',
           icon: 'bookmark-outline',
@@ -206,10 +189,11 @@ export default function ProfileScreen() {
           onPress: handleSavedItems,
         },
         {
-          id: 'shopping-preferences',
-          icon: 'bag-outline',
-          title: 'Shopping Preferences',
-          onPress: handleShoppingPreferences,
+          id: 'language',
+          icon: 'language-outline',
+          title: 'Language',
+          subtitle: 'English',
+          onPress: handleLanguage,
         },
       ],
     },
