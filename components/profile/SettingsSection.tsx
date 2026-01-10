@@ -12,7 +12,7 @@ interface SettingsSectionProps {
 export function SettingsSection({ title, items }: SettingsSectionProps) {
   return (
     <View className="mb-6">
-      <Text className="text-[14px] font-inter text-foreground-muted mb-2 px-1">
+      <Text className="text-[14px] font-inter-medium text-foreground-muted mb-2 px-1">
         {title}
       </Text>
       <Card 

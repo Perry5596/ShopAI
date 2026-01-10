@@ -43,8 +43,8 @@ export function ProfileCard({
             />
           )}
         </View>
-        <Text className="text-[18px] font-inter-medium text-foreground mt-1">{name}</Text>
-        <Text className="text-[14px] font-inter text-foreground-muted">@{username}</Text>
+        <Text className="text-[18px] font-inter-semibold text-foreground mt-1">{name}</Text>
+        <Text className="text-[14px] font-inter-medium text-foreground-muted">@{username}</Text>
       </View>
 
       <Ionicons name="chevron-forward" size={24} color="#9CA3AF" />

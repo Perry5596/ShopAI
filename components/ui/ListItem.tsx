@@ -45,9 +45,9 @@ export function ListItem({
       )}
       
       <View className="flex-1">
-        <Text className={`text-[16px] font-inter ${textColor}`}>{title}</Text>
+        <Text className={`text-[16px] font-inter-medium ${textColor}`}>{title}</Text>
         {subtitle && (
-          <Text className="text-[14px] font-inter text-foreground-muted mt-0.5">{subtitle}</Text>
+          <Text className="text-[14px] font-inter-medium text-foreground-muted mt-0.5">{subtitle}</Text>
         )}
       </View>
 

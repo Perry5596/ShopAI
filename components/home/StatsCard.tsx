@@ -70,7 +70,7 @@ export function StatsCard({
   onPress,
 }: StatsCardProps) {
   // Calculate a mock "progress" for visual effect
-  const shopProgress = Math.min((totalShops / 50) * 100, 100);
+  const shopProgress = Math.min((totalShops / 250) * 100, 100);
 
   return (
     <PressableCard

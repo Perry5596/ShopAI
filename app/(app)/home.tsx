@@ -120,8 +120,8 @@ export default function HomeScreen() {
 
   return (
     <LinearGradient
-      colors={['#F5F5F7', '#FFFFFF']}
-      locations={[0, 0.4]}
+      colors={['#EBEBED', '#F5F5F7']}
+      locations={[0, 0.25]}
       style={{ flex: 1 }}>
       {/* Content - Header scrolls with content */}
       <ScrollView

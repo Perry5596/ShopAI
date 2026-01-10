@@ -10,11 +10,11 @@ interface HeaderProps {
 
 export function Header({ userName, userAvatar }: HeaderProps) {
   return (
-    <View className="flex-row items-center justify-between px-5 py-3">
+    <View className="flex-row items-center justify-between px-5 py-3 mt-4">
       {/* Logo and App Name */}
       <View className="flex-row items-center">
-        <Ionicons name="bag" size={26} color="#000000" />
-        <Text className="text-[22px] font-inter-semibold text-foreground ml-2">Shop AI</Text>
+        <Ionicons name="bag" size={32} color="#000000" />
+        <Text className="text-[26px] font-inter-semibold text-foreground ml-2">Shop AI</Text>
       </View>
 
       {/* Profile Button */}

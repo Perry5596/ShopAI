@@ -304,7 +304,7 @@ export default function ProfileScreen() {
             size="md"
             onPress={() => router.back()}
           />
-          <Text className="text-[22px] font-inter-semibold text-foreground ml-2">Profile</Text>
+          <Text className="text-[22px] font-inter-bold text-foreground ml-2">Profile</Text>
         </View>
       </View>
 
@@ -334,10 +334,10 @@ export default function ProfileScreen() {
 
         {/* Copyright and Version Info */}
         <View className="items-center py-6 mt-4">
-          <Text className="text-[11px] font-inter text-foreground-subtle text-center">
+          <Text className="text-[11px] font-inter-medium text-foreground-subtle text-center">
             © {currentYear} Lumina Software LLC
           </Text>
-          <Text className="text-[11px] font-inter text-foreground-subtle text-center mt-1">
+          <Text className="text-[11px] font-inter-medium text-foreground-subtle text-center mt-1">
             Version {appVersion}
           </Text>
         </View>
