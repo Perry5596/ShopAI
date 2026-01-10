@@ -68,6 +68,296 @@ function extractPrice(result: CSEResult): string | undefined {
 }
 
 /**
+ * Fetch and extract price from a product page URL.
+ * Tries multiple methods: Open Graph tags, JSON-LD, retailer-specific HTML parsing.
+ */
+async function fetchProductPrice(url: string, timeoutMs = 2000): Promise<string | undefined> {
+  try {
+    // Fetch with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return undefined;
+    }
+
+    const html = await response.text();
+    const urlLower = url.toLowerCase();
+
+    // Method 1: Open Graph tags
+    const ogPriceMatch = html.match(/<meta\s+property=["']og:price:amount["']\s+content=["']([^"']+)["']/i);
+    if (ogPriceMatch) {
+      const price = parseFloat(ogPriceMatch[1]);
+      if (!isNaN(price) && price > 0) {
+        return `$${price.toFixed(2)}`;
+      }
+    }
+
+    // Method 2: JSON-LD structured data
+    const jsonLdMatches = html.match(/<script\s+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
+    if (jsonLdMatches) {
+      for (const match of jsonLdMatches) {
+        try {
+          const jsonContent = match.replace(/<script[^>]*>|<\/script>/gi, '').trim();
+          const data = JSON.parse(jsonContent);
+          
+          // Check for Product schema
+          if (data['@type'] === 'Product' || (Array.isArray(data['@type']) && data['@type'].includes('Product'))) {
+            if (data.offers) {
+              const offers = Array.isArray(data.offers) ? data.offers : [data.offers];
+              const validPrices: number[] = [];
+              
+              for (const offer of offers) {
+                // Skip used/refurbished offers - prioritize new/current price
+                const itemCondition = (offer.itemCondition || '').toLowerCase();
+                if (itemCondition.includes('used') || 
+                    itemCondition.includes('refurbished') ||
+                    itemCondition.includes('collectible')) {
+                  continue;
+                }
+                
+                if (offer.price) {
+                  const price = typeof offer.price === 'string' 
+                    ? parseFloat(offer.price.replace(/[^0-9.]/g, ''))
+                    : parseFloat(offer.price);
+                  if (!isNaN(price) && price > 0) {
+                    validPrices.push(price);
+                  }
+                }
+              }
+              
+              // Return the lowest price (usually the current/new price)
+              if (validPrices.length > 0) {
+                const minPrice = Math.min(...validPrices);
+                return `$${minPrice.toFixed(2)}`;
+              }
+            }
+            if (data.price) {
+              const price = typeof data.price === 'string'
+                ? parseFloat(data.price.replace(/[^0-9.]/g, ''))
+                : parseFloat(data.price);
+              if (!isNaN(price) && price > 0) {
+                return `$${price.toFixed(2)}`;
+              }
+            }
+          }
+        } catch {
+          // Skip invalid JSON
+          continue;
+        }
+      }
+    }
+
+    // Method 3: Retailer-specific HTML parsing
+    if (urlLower.includes('amazon.com')) {
+      // Amazon: Prioritize current price, avoid list/used prices
+      // Pattern 1: priceblock_ourprice or priceblock_dealprice (current price)
+      const currentPriceMatch = html.match(/<span[^>]*id=["']priceblock_(?:ourprice|dealprice)["'][^>]*>[\s$]*([\d,.]+)/i);
+      if (currentPriceMatch) {
+        const price = parseFloat(currentPriceMatch[1].replace(/[^0-9.]/g, ''));
+        if (!isNaN(price) && price > 0) {
+          return `$${price.toFixed(2)}`;
+        }
+      }
+
+      // Pattern 2: a-price-whole (current price format) - but exclude if it's in a "used" or "list price" context
+      const priceWholeMatches = html.matchAll(/<span[^>]*class=["'][^"']*a-price-whole["'][^>]*>([\d,]+)<\/span>/gi);
+      for (const match of priceWholeMatches) {
+        // Check context - make sure it's not a list price or used price
+        const contextStart = Math.max(0, match.index! - 200);
+        const contextEnd = Math.min(html.length, match.index! + match[0].length + 200);
+        const context = html.substring(contextStart, contextEnd).toLowerCase();
+        
+        // Skip if it's a list price, used price, or "from" price
+        if (context.includes('list price') || 
+            context.includes('used') || 
+            context.includes('from') ||
+            context.includes('priceblock_saleprice')) {
+          continue;
+        }
+        
+        // This looks like the current price
+        const price = parseFloat(match[1].replace(/[^0-9.]/g, ''));
+        if (!isNaN(price) && price > 0) {
+          // Also check for price fraction (cents)
+          const fractionMatch = html.substring(match.index!, match.index! + 100).match(/<span[^>]*class=["'][^"']*a-price-fraction["'][^>]*>(\d+)<\/span>/i);
+          if (fractionMatch) {
+            return `$${price.toFixed(2)}`;
+          } else {
+            return `$${price.toFixed(2)}`;
+          }
+        }
+      }
+
+      // Pattern 3: Generic a-price pattern (last resort, but check context)
+      const genericPriceMatches = html.matchAll(/<span[^>]*class=["'][^"']*a-price[^"']*["'][^>]*>[\s$]*\$?([\d,.]+)/gi);
+      for (const match of genericPriceMatches) {
+        const contextStart = Math.max(0, match.index! - 200);
+        const contextEnd = Math.min(html.length, match.index! + match[0].length + 200);
+        const context = html.substring(contextStart, contextEnd).toLowerCase();
+        
+        // Skip list/used prices
+        if (!context.includes('list price') && 
+            !context.includes('used') && 
+            !context.includes('priceblock_saleprice')) {
+          const price = parseFloat(match[1].replace(/[^0-9.]/g, ''));
+          if (!isNaN(price) && price > 0 && price < 10000) { // Sanity check
+            return `$${price.toFixed(2)}`;
+          }
+        }
+      }
+    } else if (urlLower.includes('ebay.com')) {
+      // eBay: Look for price
+      const ebayPatterns = [
+        /<span[^>]*class=["'][^"']*notranslate[^"']*["'][^>]*>[\s$]*([\d,.]+)/i,
+        /<span[^>]*itemprop=["']price["'][^>]*content=["']([\d.]+)["']/i,
+      ];
+      
+      for (const pattern of ebayPatterns) {
+        const match = html.match(pattern);
+        if (match) {
+          const price = parseFloat(match[1].replace(/[^0-9.]/g, ''));
+          if (!isNaN(price) && price > 0) {
+            return `$${price.toFixed(2)}`;
+          }
+        }
+      }
+    } else if (urlLower.includes('target.com')) {
+      // Target: Look for price
+      const targetPatterns = [
+        /<span[^>]*data-test=["']product-price[^"']*["'][^>]*>[\s$]*([\d,.]+)/i,
+        /<span[^>]*class=["'][^"']*h-text-bold[^"']*["'][^>]*>[\s$]*\$?([\d,.]+)/i,
+      ];
+      
+      for (const pattern of targetPatterns) {
+        const match = html.match(pattern);
+        if (match) {
+          const price = parseFloat(match[1].replace(/[^0-9.]/g, ''));
+          if (!isNaN(price) && price > 0) {
+            return `$${price.toFixed(2)}`;
+          }
+        }
+      }
+    } else if (urlLower.includes('bestbuy.com')) {
+      // Best Buy: Look for price
+      const bestbuyPatterns = [
+        /<div[^>]*class=["'][^"']*priceView-customer-price[^"']*["'][^>]*>[\s\S]*?<span[^>]*>[\s$]*\$?([\d,.]+)/i,
+        /<span[^>]*class=["'][^"']*price[^"']*["'][^>]*>[\s$]*\$?([\d,.]+)/i,
+      ];
+      
+      for (const pattern of bestbuyPatterns) {
+        const match = html.match(pattern);
+        if (match) {
+          const price = parseFloat(match[1].replace(/[^0-9.]/g, ''));
+          if (!isNaN(price) && price > 0) {
+            return `$${price.toFixed(2)}`;
+          }
+        }
+      }
+    } else if (urlLower.includes('walmart.com')) {
+      // Walmart: Look for price in various formats
+      // Pattern 1: itemprop price (structured data)
+      const itempropMatch = html.match(/<span[^>]*itemprop=["']price["'][^>]*content=["']([\d.]+)["']/i);
+      if (itempropMatch) {
+        const price = parseFloat(itempropMatch[1]);
+        if (!isNaN(price) && price > 0) {
+          return `$${price.toFixed(2)}`;
+        }
+      }
+
+      // Pattern 2: priceDisplay class (current price display)
+      const priceDisplayMatch = html.match(/<span[^>]*class=["'][^"']*priceDisplay[^"']*["'][^>]*>[\s$]*\$?([\d,.]+)/i);
+      if (priceDisplayMatch) {
+        const price = parseFloat(priceDisplayMatch[1].replace(/[^0-9.]/g, ''));
+        if (!isNaN(price) && price > 0) {
+          return `$${price.toFixed(2)}`;
+        }
+      }
+
+      // Pattern 3: price-characteristic (Walmart's price format)
+      const priceCharMatch = html.match(/<span[^>]*class=["'][^"']*price-characteristic[^"']*["'][^>]*content=["']([\d.]+)["']/i);
+      if (priceCharMatch) {
+        const price = parseFloat(priceCharMatch[1]);
+        if (!isNaN(price) && price > 0) {
+          return `$${price.toFixed(2)}`;
+        }
+      }
+
+      // Pattern 4: prod-PriceHero (hero price display)
+      const heroPriceMatch = html.match(/<span[^>]*class=["'][^"']*prod-PriceHero[^"']*["'][^>]*>[\s$]*\$?([\d,.]+)/i);
+      if (heroPriceMatch) {
+        const price = parseFloat(heroPriceMatch[1].replace(/[^0-9.]/g, ''));
+        if (!isNaN(price) && price > 0) {
+          return `$${price.toFixed(2)}`;
+        }
+      }
+
+      // Pattern 5: price-current or price-current-wrapper
+      const currentPriceMatch = html.match(/<span[^>]*class=["'][^"']*price-current[^"']*["'][^>]*>[\s$]*\$?([\d,.]+)/i);
+      if (currentPriceMatch) {
+        const price = parseFloat(currentPriceMatch[1].replace(/[^0-9.]/g, ''));
+        if (!isNaN(price) && price > 0) {
+          return `$${price.toFixed(2)}`;
+        }
+      }
+
+      // Pattern 6: data-automation-id="product-price" (Walmart's automation attributes)
+      const automationMatch = html.match(/<span[^>]*data-automation-id=["']product-price["'][^>]*>[\s$]*\$?([\d,.]+)/i);
+      if (automationMatch) {
+        const price = parseFloat(automationMatch[1].replace(/[^0-9.]/g, ''));
+        if (!isNaN(price) && price > 0) {
+          return `$${price.toFixed(2)}`;
+        }
+      }
+
+      // Pattern 7: Generic price class (last resort, but check context)
+      const genericPriceMatches = html.matchAll(/<span[^>]*class=["'][^"']*price[^"']*["'][^>]*>[\s$]*\$?([\d,.]+)/gi);
+      for (const match of genericPriceMatches) {
+        const contextStart = Math.max(0, match.index! - 200);
+        const contextEnd = Math.min(html.length, match.index! + match[0].length + 200);
+        const context = html.substring(contextStart, contextEnd).toLowerCase();
+        
+        // Skip if it's a list price, was price, or other non-current price
+        if (!context.includes('was') && 
+            !context.includes('list price') && 
+            !context.includes('save') &&
+            !context.includes('price-marker')) {
+          const price = parseFloat(match[1].replace(/[^0-9.]/g, ''));
+          if (!isNaN(price) && price > 0 && price < 100000) {
+            return `$${price.toFixed(2)}`;
+          }
+        }
+      }
+    }
+
+    // Method 4: Generic price pattern as last resort
+    const genericPriceMatch = html.match(/\$[\d,]+\.?\d{0,2}/);
+    if (genericPriceMatch) {
+      const price = parseFloat(genericPriceMatch[0].replace(/[$,]/g, ''));
+      if (!isNaN(price) && price > 0 && price < 1000000) { // Sanity check
+        return genericPriceMatch[0];
+      }
+    }
+
+    return undefined;
+  } catch (error) {
+    // Silently fail - we'll fall back to snippet price
+    return undefined;
+  }
+}
+
+/**
  * Step 1: Use LLM vision to identify the product from the image.
  * Returns structured product info including an optimized search query.
  */
@@ -264,7 +554,7 @@ serve(async (req) => {
     // Step 3: Select best result per retailer
     const selectedProducts = selectBestPerRetailer(searchResults);
 
-    // Step 4: Build response with affiliate tags
+    // Step 4: Build initial product list with snippet prices (fast)
     const productTitle = productInfo.brand && productInfo.name
       ? `${productInfo.brand} ${productInfo.name}`
       : productInfo.name || productInfo.searchQuery;
@@ -273,25 +563,58 @@ serve(async (req) => {
       .filter(Boolean)
       .join(' - ') || undefined;
 
-    const products: SnapResult['products'] = [];
+    const products: Array<{
+      title: string;
+      price?: string;
+      affiliateUrl: string;
+      source: string;
+      isRecommended: boolean;
+      url: string; // Store original URL for price fetching
+    }> = [];
     let isFirst = true;
 
     for (const [, result] of selectedProducts) {
-      const price = extractPrice(result);
+      const snippetPrice = extractPrice(result);
       products.push({
         title: result.title,
-        price,
+        price: snippetPrice, // Fallback price from snippet
         affiliateUrl: appendAffiliateTag(result.link),
         source: getRetailerName(result.link),
         isRecommended: isFirst,
+        url: result.link, // Store for parallel fetching
       });
       isFirst = false;
     }
 
+    // Step 5: Fetch prices in parallel (with timeout per request)
+    // Skip search result pages - they won't have product prices
+    const pricePromises = products.map(async (product) => {
+      // Skip fetching for search result pages
+      if (isSearchResultsPage(product.url)) {
+        return product.price; // Keep snippet price for search pages
+      }
+      
+      // Fetch price from product page
+      const fetchedPrice = await fetchProductPrice(product.url, 2000);
+      return fetchedPrice || product.price; // Use fetched price if available, otherwise keep snippet price
+    });
+
+    // Wait for all price fetches in parallel (max 2 seconds total)
+    const fetchedPrices = await Promise.all(pricePromises);
+
+    // Update products with fetched prices
+    const finalProducts: SnapResult['products'] = products.map((product, index) => ({
+      title: product.title,
+      price: fetchedPrices[index],
+      affiliateUrl: product.affiliateUrl,
+      source: product.source,
+      isRecommended: product.isRecommended,
+    }));
+
     const snapResult: SnapResult = {
       title: productTitle,
       description,
-      products,
+      products: finalProducts,
     };
 
     return new Response(
