@@ -7,17 +7,20 @@ import { ShopHeader, ProductImage, ProductLinks, ActionButtons } from '@/compone
 import { Badge } from '@/components/ui/Badge';
 import { useShopStore } from '@/stores';
 import { useAuth } from '@/contexts/AuthContext';
+import { shopService } from '@/utils/supabase-service';
 import type { Shop } from '@/types';
 
 export default function ShopDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { shops, getShopById, toggleFavorite, deleteShop } = useShopStore();
+  const { shops, getShopById, toggleFavorite, deleteShop, addShop } = useShopStore();
   
   // Get shop from store - this will update when the store updates
   const shop = getShopById(id || '');
   const [isFavorite, setIsFavorite] = useState(shop?.isFavorite ?? false);
+  const [isLoadingShop, setIsLoadingShop] = useState(false);
+  const [shopLoadError, setShopLoadError] = useState<string | null>(null);
 
   // Update local favorite state when shop changes
   useEffect(() => {
@@ -26,13 +29,74 @@ export default function ShopDetailScreen() {
     }
   }, [shop?.isFavorite]);
 
+  // Fetch shop from Supabase if not in cache
+  useEffect(() => {
+    const shopId = id || '';
+    if (!shopId) return;
+
+    // Check if shop is in cache
+    const cachedShop = getShopById(shopId);
+    if (cachedShop) {
+      // Shop is in cache, no need to fetch
+      setIsLoadingShop(false);
+      setShopLoadError(null);
+      return;
+    }
+
+    // Shop not in cache, fetch from Supabase
+    let cancelled = false;
+
+    const fetchShop = async () => {
+      setIsLoadingShop(true);
+      setShopLoadError(null);
+      try {
+        const fetchedShop = await shopService.getShopById(shopId);
+        if (cancelled) return;
+        
+        if (fetchedShop) {
+          // Add to store cache
+          addShop(fetchedShop);
+        } else {
+          setShopLoadError('Shop not found');
+        }
+      } catch (error) {
+        if (cancelled) return;
+        console.error('Failed to fetch shop:', error);
+        setShopLoadError(error instanceof Error ? error.message : 'Failed to load shop');
+      } finally {
+        if (!cancelled) {
+          setIsLoadingShop(false);
+        }
+      }
+    };
+
+    fetchShop();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', {
+    const now = new Date();
+    
+    // Format date
+    const dateStr = date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+    });
+    
+    // Format time
+    const timeStr = date.toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
     });
+    
+    return `${dateStr}, ${timeStr}`;
   };
 
   const handleShare = async () => {
@@ -95,13 +159,25 @@ export default function ShopDetailScreen() {
     router.back();
   };
 
-  // Shop not found
+  // Loading shop from Supabase
+  if (!shop && isLoadingShop) {
+    return (
+      <View className="flex-1 bg-background items-center justify-center">
+        <ActivityIndicator size="large" color="#000000" />
+        <Text className="text-[16px] font-inter-medium text-foreground-muted mt-4">
+          Loading shop...
+        </Text>
+      </View>
+    );
+  }
+
+  // Shop not found (after loading attempt)
   if (!shop) {
     return (
       <View className="flex-1 bg-background items-center justify-center">
         <Ionicons name="alert-circle-outline" size={48} color="#9CA3AF" />
         <Text className="text-[16px] font-inter-medium text-foreground-muted mt-4">
-          Shop not found
+          {shopLoadError || 'Shop not found'}
         </Text>
         <TouchableOpacity
           onPress={() => router.back()}

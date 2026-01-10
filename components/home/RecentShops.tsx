@@ -10,13 +10,30 @@ interface RecentShopsProps {
 }
 
 function ShopItem({ shop }: { shop: Shop }) {
-  const formatTime = (dateString: string) => {
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const shopDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    
+    // Check if it's today
+    const isToday = today.getTime() === shopDate.getTime();
+    
+    if (isToday) {
+      // Today: show time only
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+    } else {
+      // Not today: show date only
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+      });
+    }
   };
 
   const isProcessing = shop.status === 'processing';
@@ -82,7 +99,7 @@ function ShopItem({ shop }: { shop: Shop }) {
             </Text>
           )}
           <Text className="text-[12px] font-inter text-foreground-muted ml-2">
-            {formatTime(shop.createdAt)}
+            {formatDate(shop.createdAt)}
           </Text>
         </View>
 
@@ -138,6 +155,11 @@ function ShopItem({ shop }: { shop: Shop }) {
   );
 }
 
+type ShopSection = {
+  title: string;
+  shops: Shop[];
+};
+
 export function RecentShops({ shops, isLoadingMore, hasMore }: RecentShopsProps) {
   if (shops.length === 0) {
     return (
@@ -153,14 +175,63 @@ export function RecentShops({ shops, isLoadingMore, hasMore }: RecentShopsProps)
     );
   }
 
+  // Group shops by time period
+  const groupShopsByTime = (shops: Shop[]): ShopSection[] => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const oneWeekAgo = new Date(today);
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    const oneMonthAgo = new Date(today);
+    oneMonthAgo.setDate(oneMonthAgo.getDate() - 30);
+
+    const sections: ShopSection[] = [
+      { title: 'Today', shops: [] },
+      { title: 'This Week', shops: [] },
+      { title: 'This Month', shops: [] },
+      { title: 'Older', shops: [] },
+    ];
+
+    shops.forEach((shop) => {
+      const shopDate = new Date(shop.createdAt);
+      const shopDateOnly = new Date(shopDate.getFullYear(), shopDate.getMonth(), shopDate.getDate());
+      
+      const daysDiff = Math.floor((today.getTime() - shopDateOnly.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (daysDiff === 0) {
+        sections[0].shops.push(shop);
+      } else if (daysDiff <= 7) {
+        sections[1].shops.push(shop);
+      } else if (daysDiff <= 30) {
+        sections[2].shops.push(shop);
+      } else {
+        sections[3].shops.push(shop);
+      }
+    });
+
+    // Filter out empty sections
+    return sections.filter((section) => section.shops.length > 0);
+  };
+
+  const sections = groupShopsByTime(shops);
+
   return (
     <View>
       <Text className="text-[18px] font-inter-semibold text-foreground mb-4 px-5">
         Recent shops
       </Text>
       <View className="px-5">
-        {shops.map((shop) => (
-          <ShopItem key={shop.id} shop={shop} />
+        {sections.map((section, sectionIndex) => (
+          <View key={section.title}>
+            {/* Section Header */}
+            <Text className={`text-[14px] font-inter-semibold text-foreground-muted mb-3 ${sectionIndex === 0 ? '' : 'mt-4'}`}>
+              {section.title}
+            </Text>
+            
+            {/* Section Shops */}
+            {section.shops.map((shop) => (
+              <ShopItem key={shop.id} shop={shop} />
+            ))}
+          </View>
         ))}
         
         {/* Loading more indicator */}
