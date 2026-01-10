@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import { makeRedirectUri } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '@/utils/supabase';
-import { profileService } from '@/utils/supabase-service';
+import { useProfileStore } from '@/stores';
 import type { Session, User } from '@supabase/supabase-js';
 import type { UserProfile } from '@/types';
 
@@ -45,37 +45,41 @@ function extractUserProfileFromMetadata(user: User | null): UserProfile | null {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch profile from database with timeout
-  const fetchProfile = useCallback(async (userId: string, authUser: User) => {
+  // Use stable zustand selector for profile (avoids re-renders from store object changes)
+  const profile = useProfileStore((state) => state.profile);
+
+  // Fetch profile from database in background (non-blocking)
+  // Uses getState() to avoid dependency on store object which changes every render
+  const fetchProfile = useCallback(async (userId: string, authUser: User, delayMs = 250) => {
     try {
-      // Add a timeout to prevent hanging
-      const timeoutPromise = new Promise<null>((_, reject) => 
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 3000)
-      );
-      
-      const profilePromise = profileService.getProfile(userId);
-      const dbProfile = await Promise.race([profilePromise, timeoutPromise]);
-      
-      if (dbProfile) {
-        setProfile(dbProfile);
-      } else {
-        // Fallback to metadata if no DB profile exists yet
-        setProfile(extractUserProfileFromMetadata(authUser));
+      // Add delay to allow Supabase client to fully process session tokens
+      // This fixes the race condition where onAuthStateChange fires before
+      // the client is ready to make authenticated requests
+      if (delayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+
+      // Use getState() for stable reference to store actions
+      const store = useProfileStore.getState();
+      const dbProfile = await store.fetchProfile(userId);
+
+      // Only update if we got a valid profile (otherwise keep metadata)
+      if (!dbProfile) {
+        console.log('No DB profile found, keeping metadata profile');
       }
     } catch (error) {
-      console.error('Failed to fetch profile:', error);
-      // Fallback to metadata on error
-      setProfile(extractUserProfileFromMetadata(authUser));
+      console.error('Failed to fetch profile from DB:', error);
+      // Keep the metadata profile that was already set
     }
-  }, []);
+  }, []); // No dependencies - uses getState() for stable access
 
   // Public method to refresh profile (e.g., after stats update)
   const refreshProfile = useCallback(async () => {
     if (user?.id) {
-      await fetchProfile(user.id, user);
+      // No delay needed for refresh since session is already established
+      await fetchProfile(user.id, user, 0);
     }
   }, [user, fetchProfile]);
 
@@ -93,7 +97,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          await fetchProfile(session.user.id, session.user);
+          // Set immediate profile from metadata (no blocking)
+          useProfileStore.getState().setProfile(extractUserProfileFromMetadata(session.user));
+          // Then fetch full profile from DB in background (don't await)
+          fetchProfile(session.user.id, session.user);
         }
       } catch (error) {
         console.error('Auth init error:', error);
@@ -112,20 +119,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('Auth state changed:', event);
         if (!isMounted) return;
 
+        // Skip INITIAL_SESSION since initAuth handles it
+        if (event === 'INITIAL_SESSION') {
+          return;
+        }
+
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          try {
-            await fetchProfile(session.user.id, session.user);
-          } catch (error) {
-            console.error('Profile fetch error:', error);
-          }
+          // Set immediate profile from metadata (no blocking)
+          useProfileStore.getState().setProfile(extractUserProfileFromMetadata(session.user));
+          // End loading state immediately - user is authenticated
+          setIsLoading(false);
+          // Then fetch full profile from DB in background (don't await)
+          fetchProfile(session.user.id, session.user);
         } else {
-          setProfile(null);
+          useProfileStore.getState().clearProfile();
+          setIsLoading(false);
         }
-        
-        setIsLoading(false);
       }
     );
 
@@ -221,7 +233,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       setUser(null);
       setSession(null);
-      setProfile(null);
+      useProfileStore.getState().clearProfile();
     } catch (error) {
       console.error('Sign out error:', error);
       throw error;
@@ -291,7 +303,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // 5. Clear local state
       setUser(null);
       setSession(null);
-      setProfile(null);
+      useProfileStore.getState().clearProfile();
     } catch (error) {
       console.error('Delete account error:', error);
       throw error;
