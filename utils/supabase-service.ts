@@ -37,7 +37,7 @@ function dbProductToProductLink(dbProduct: DbProduct): ProductLink {
     id: dbProduct.id,
     shopId: dbProduct.shop_id,
     title: dbProduct.title,
-    price: dbProduct.price,
+    price: dbProduct.price ?? undefined,
     imageUrl: dbProduct.image_url ?? undefined,
     affiliateUrl: dbProduct.affiliate_url,
     source: dbProduct.source,

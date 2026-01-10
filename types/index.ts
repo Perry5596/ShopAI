@@ -44,7 +44,7 @@ export interface ProductLink {
   id: string;
   shopId: string;
   title: string;
-  price: string;
+  price?: string; // Optional - may not be available from search results
   imageUrl?: string;
   affiliateUrl: string;
   source: string; // e.g., "Amazon", "Target", etc.
@@ -79,7 +79,7 @@ export interface DbProduct {
   id: string;
   shop_id: string;
   title: string;
-  price: string;
+  price: string | null; // Nullable - may not be available from search results
   image_url: string | null;
   affiliate_url: string;
   source: string;

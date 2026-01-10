@@ -5,8 +5,10 @@ import type { Shop, SnapResult } from '@/types';
 
 /**
  * Parse a price string like "$129.99" to cents (12999)
+ * Returns 0 if price is undefined or invalid
  */
-function parsePriceToCents(priceStr: string): number {
+function parsePriceToCents(priceStr: string | undefined): number {
+  if (!priceStr) return 0;
   // Remove currency symbols and parse
   const cleaned = priceStr.replace(/[^0-9.]/g, '');
   const parsed = parseFloat(cleaned);
@@ -16,12 +18,15 @@ function parsePriceToCents(priceStr: string): number {
 
 /**
  * Calculate savings: average price - lowest price (in cents)
+ * Filters out zero/invalid prices before calculating
  */
 function calculateSavings(prices: number[]): number {
-  if (prices.length < 2) return 0;
-  const total = prices.reduce((sum, p) => sum + p, 0);
-  const average = total / prices.length;
-  const lowest = Math.min(...prices);
+  // Filter out invalid prices (0 means price wasn't available)
+  const validPrices = prices.filter((p) => p > 0);
+  if (validPrices.length < 2) return 0;
+  const total = validPrices.reduce((sum, p) => sum + p, 0);
+  const average = total / validPrices.length;
+  const lowest = Math.min(...validPrices);
   return Math.max(0, Math.round(average - lowest));
 }
 
