@@ -1,5 +1,6 @@
-import { View, Text, Dimensions } from 'react-native';
+import { View, Text, Dimensions, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import Svg, { Circle } from 'react-native-svg';
 import { PressableCard } from '../ui/Card';
 
@@ -111,11 +112,43 @@ interface MiniStatsRowProps {
   savings: number;
 }
 
+/**
+ * Format number with k/m suffixes for large numbers
+ * 1000 -> 1.0k, 1500 -> 1.5k, 1000000 -> 1.0m
+ */
+function formatNumber(num: number): string {
+  if (num < 1000) {
+    return num.toString();
+  } else if (num < 1000000) {
+    const k = num / 1000;
+    return k % 1 === 0 ? `${k}k` : `${k.toFixed(1)}k`;
+  } else {
+    const m = num / 1000000;
+    return m % 1 === 0 ? `${m}m` : `${m.toFixed(1)}m`;
+  }
+}
+
 export function MiniStatsRow({ favorites, products, savings }: MiniStatsRowProps) {
+  // Calculate progress percentages
+  const favoritesProgress = Math.min((favorites / 20) * 100, 100);
+  const productsProgress = Math.min((products / 2500) * 100, 100);
+  const savingsProgress = Math.min((savings / 10000) * 100, 100);
+
+  // Format numbers for display
+  const favoritesDisplay = formatNumber(favorites);
+  const productsDisplay = formatNumber(products);
+  const savingsDisplay = formatNumber(savings);
+
+  const handleFavoritesPress = () => {
+    router.push('/(app)/saved-items');
+  };
+
   return (
     <View className="flex-row mx-5 mb-4 space-x-3">
       {/* Favorites */}
-      <View 
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={handleFavoritesPress}
         className="flex-1 bg-card rounded-2xl p-4 items-center"
         style={{
           shadowColor: '#000',
@@ -126,7 +159,7 @@ export function MiniStatsRow({ favorites, products, savings }: MiniStatsRowProps
         }}>
         <View className="relative mb-2">
           <CircularProgress 
-            progress={Math.min((favorites / 20) * 100, 100)} 
+            progress={favoritesProgress} 
             size={50} 
             strokeWidth={5}
             color="#EF4444"
@@ -136,9 +169,9 @@ export function MiniStatsRow({ favorites, products, savings }: MiniStatsRowProps
             <Ionicons name="heart" size={18} color="#EF4444" />
           </View>
         </View>
-        <Text className="text-[20px] font-inter-semibold text-foreground">{favorites}</Text>
+        <Text className="text-[20px] font-inter-semibold text-foreground">{favoritesDisplay}</Text>
         <Text className="text-[12px] font-inter text-foreground-muted">Favorites</Text>
-      </View>
+      </TouchableOpacity>
 
       {/* Products Found */}
       <View 
@@ -152,7 +185,7 @@ export function MiniStatsRow({ favorites, products, savings }: MiniStatsRowProps
         }}>
         <View className="relative mb-2">
           <CircularProgress 
-            progress={Math.min((products / 100) * 100, 100)} 
+            progress={productsProgress} 
             size={50} 
             strokeWidth={5}
             color="#3B82F6"
@@ -162,7 +195,7 @@ export function MiniStatsRow({ favorites, products, savings }: MiniStatsRowProps
             <Ionicons name="link" size={18} color="#3B82F6" />
           </View>
         </View>
-        <Text className="text-[20px] font-inter-semibold text-foreground">{products}</Text>
+        <Text className="text-[20px] font-inter-semibold text-foreground">{productsDisplay}</Text>
         <Text className="text-[12px] font-inter text-foreground-muted">Products</Text>
       </View>
 
@@ -178,7 +211,7 @@ export function MiniStatsRow({ favorites, products, savings }: MiniStatsRowProps
         }}>
         <View className="relative mb-2">
           <CircularProgress 
-            progress={65} 
+            progress={savingsProgress} 
             size={50} 
             strokeWidth={5}
             color="#22C55E"
@@ -188,7 +221,7 @@ export function MiniStatsRow({ favorites, products, savings }: MiniStatsRowProps
             <Ionicons name="trending-up" size={18} color="#22C55E" />
           </View>
         </View>
-        <Text className="text-[20px] font-inter-semibold text-foreground">${savings}</Text>
+        <Text className="text-[20px] font-inter-semibold text-foreground">${savingsDisplay}</Text>
         <Text className="text-[12px] font-inter text-foreground-muted">Saved</Text>
       </View>
     </View>

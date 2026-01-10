@@ -5,12 +5,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Header, StatsCard, MiniStatsRow, RecentShops, FloatingActionButton } from '@/components/home';
 import { useAuth } from '@/contexts/AuthContext';
 import { useShopStore } from '@/stores';
+import { shopService } from '@/utils/supabase-service';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { profile, user, refreshProfile } = useAuth();
   const { shops, isLoading, isLoadingMore, hasMore, error, fetchShops, fetchMoreShops } = useShopStore();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [totalFavorites, setTotalFavorites] = useState(0);
 
   // Track which shops were processing to detect completion
   const previousProcessingShopsRef = useRef<Set<string>>(new Set());
@@ -21,6 +23,26 @@ export default function HomeScreen() {
       fetchShops(user.id);
     }
   }, [user?.id, fetchShops]);
+
+  // Fetch total favorites count (lightweight query)
+  const loadFavoritesCount = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const count = await shopService.countFavoriteShops(user.id);
+      setTotalFavorites(count);
+    } catch (err) {
+      console.error('Failed to count favorites:', err);
+      // Fallback to counting from loaded shops if query fails
+      setTotalFavorites((prev) => {
+        const localCount = shops.filter((s) => s.isFavorite).length;
+        return localCount > 0 ? localCount : prev;
+      });
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    loadFavoritesCount();
+  }, [loadFavoritesCount]);
 
   // Detect when processing shops become completed and refresh profile
   useEffect(() => {
@@ -56,11 +78,12 @@ export default function HomeScreen() {
       await Promise.all([
         fetchShops(user.id),
         refreshProfile(),
+        loadFavoritesCount(),
       ]);
     } finally {
       setIsRefreshing(false);
     }
-  }, [user?.id, fetchShops, refreshProfile]);
+  }, [user?.id, fetchShops, refreshProfile, loadFavoritesCount]);
 
   // Load more shops when scrolling near bottom
   const handleLoadMore = useCallback(() => {
@@ -84,8 +107,8 @@ export default function HomeScreen() {
   const totalProducts = profile?.totalProducts ?? 0;
   const totalSavings = profile?.totalSavings ?? 0; // in cents
 
-  // Favorites can go up/down, so calculate from current shops
-  const totalFavorites = shops.filter((s) => s.isFavorite).length;
+  // Favorites count is fetched separately to get ALL favorites, not just loaded shops
+  // totalFavorites is set via useEffect above
 
   // Calculate shops created this week (for display purposes)
   const oneWeekAgo = new Date();

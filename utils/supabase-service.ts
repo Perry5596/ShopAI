@@ -296,6 +296,22 @@ export const shopService = {
   },
 
   /**
+   * Count favorited shops for a user (lightweight query, doesn't fetch full shop data)
+   * @param userId - User ID to count favorites for
+   * @returns Number of favorited shops
+   */
+  async countFavoriteShops(userId: string): Promise<number> {
+    const { count, error } = await supabase
+      .from('shops')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('is_favorite', true);
+
+    if (error) throw error;
+    return count ?? 0;
+  },
+
+  /**
    * Fetch user's favorited shops
    * @param userId - User ID to fetch favorited shops for
    * @param limit - Number of shops to fetch (default 50)
