@@ -21,7 +21,7 @@ interface ShopItemProps {
 
 function ShopItem({ shop, onEditTitle }: ShopItemProps) {
   const { user } = useAuth();
-  const { deleteShop } = useShopStore();
+  const { deleteShop, toggleFavorite } = useShopStore();
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -62,6 +62,17 @@ function ShopItem({ shop, onEditTitle }: ShopItemProps) {
           }
         },
         { 
+          text: shop.isFavorite ? 'Remove from Favorites' : 'Add to Favorites', 
+          onPress: async () => {
+            try {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              await toggleFavorite(shop.id);
+            } catch (error) {
+              Alert.alert('Error', 'Failed to update favorite status');
+            }
+          }
+        },
+        { 
           text: 'Delete Shop', 
           style: 'destructive', 
           onPress: async () => {
@@ -97,7 +108,7 @@ function ShopItem({ shop, onEditTitle }: ShopItemProps) {
         elevation: 4,
       }}>
       {/* Thumbnail */}
-      <View className="w-28 h-28 bg-background-secondary">
+      <View className="w-28 h-28 bg-background-secondary relative">
         {shop.imageUrl ? (
           <View className="w-full h-full">
             <Image
@@ -105,6 +116,12 @@ function ShopItem({ shop, onEditTitle }: ShopItemProps) {
               className="w-full h-full"
               resizeMode="cover"
             />
+            {/* Favorite indicator - subtle star icon in top-right corner */}
+            {shop.isFavorite && (
+              <View className="absolute top-1.5 right-1.5 bg-black/30 rounded-full p-1">
+                <Ionicons name="star" size={14} color="#FFD700" />
+              </View>
+            )}
             {/* Processing overlay */}
             {isProcessing && (
               <View className="absolute inset-0 bg-black/40 items-center justify-center">
@@ -121,6 +138,12 @@ function ShopItem({ shop, onEditTitle }: ShopItemProps) {
         ) : (
           <View className="w-full h-full items-center justify-center">
             <Ionicons name="image-outline" size={32} color="#9CA3AF" />
+            {/* Favorite indicator for placeholder image */}
+            {shop.isFavorite && (
+              <View className="absolute top-1.5 right-1.5 bg-black/30 rounded-full p-1">
+                <Ionicons name="star" size={14} color="#FFD700" />
+              </View>
+            )}
           </View>
         )}
       </View>
