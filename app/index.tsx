@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { View, Text, Linking, Alert, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, Linking, Alert, ActivityIndicator, Platform, Image } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -46,16 +46,26 @@ export default function WelcomeScreen() {
     }
   };
 
-  const handleTermsPress = () => {
+  const handleTermsPress = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // TODO: Replace with actual terms URL
-    Linking.openURL('https://example.com/terms');
+    const url = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+    const canOpen = await Linking.canOpenURL(url);
+    if (canOpen) {
+      await Linking.openURL(url);
+    } else {
+      Alert.alert('Error', 'Unable to open the Terms and Conditions page.');
+    }
   };
 
-  const handlePrivacyPress = () => {
+  const handlePrivacyPress = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // TODO: Replace with actual privacy URL
-    Linking.openURL('https://example.com/privacy');
+    const url = 'https://luminasoftware.app/privacy';
+    const canOpen = await Linking.canOpenURL(url);
+    if (canOpen) {
+      await Linking.openURL(url);
+    } else {
+      Alert.alert('Error', 'Unable to open the Privacy Policy page.');
+    }
   };
 
   // Show loading if checking auth or signing in
@@ -81,8 +91,29 @@ export default function WelcomeScreen() {
       {/* Main Content - Centered */}
       <View className="flex-1 items-center justify-center px-8">
         {/* Logo */}
-        <View className="w-24 h-24 bg-accent rounded-3xl items-center justify-center mb-6 shadow-lg">
-          <Ionicons name="bag" size={48} color="#FFFFFF" />
+        <View
+          className="mb-6"
+          style={{
+            width: 96,
+            height: 96,
+            borderRadius: 24,
+            overflow: 'hidden',
+            // iOS shadow
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.15,
+            shadowRadius: 8,
+            // Android shadow
+            elevation: 8,
+          }}>
+          <Image 
+            source={require('@/assets/icon.png')} 
+            style={{ 
+              width: 96, 
+              height: 96,
+            }}
+            resizeMode="cover"
+          />
         </View>
 
         {/* App Name */}
