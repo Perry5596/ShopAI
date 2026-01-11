@@ -1,6 +1,7 @@
 import { View, Text, Image, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { CircularProgress } from '@/components/ui/CircularProgress';
 import { useAuth } from '@/contexts/AuthContext';
 import { useShopStore } from '@/stores';
@@ -83,7 +84,10 @@ function ShopItem({ shop, onEditTitle }: ShopItemProps) {
     <TouchableOpacity
       className="flex-row bg-card rounded-2xl overflow-hidden mb-3"
       activeOpacity={0.7}
-      onPress={() => router.push(`/(app)/shop/${shop.id}`)}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        router.push(`/(app)/shop/${shop.id}`);
+      }}
       onLongPress={handleLongPress}
       style={{
         shadowColor: '#000',

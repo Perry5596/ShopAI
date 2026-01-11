@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../ui/Avatar';
 import { Badge } from '../ui/Badge';
+import * as Haptics from 'expo-haptics';
 
 interface ProfileCardProps {
   name: string;
@@ -18,9 +19,16 @@ export function ProfileCard({
   isPremium = false,
   onPress,
 }: ProfileCardProps) {
+  const handlePress = () => {
+    if (onPress) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      onPress();
+    }
+  };
+
   return (
     <TouchableOpacity
-      onPress={onPress}
+      onPress={handlePress}
       activeOpacity={0.7}
       className="bg-card rounded-2xl p-4 flex-row items-center"
       style={{

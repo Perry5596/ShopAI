@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { FontAwesome5, FontAwesome6 } from '@expo/vector-icons';
 import { Badge } from '../ui/Badge';
 import type { ProductLink } from '@/types';
+import * as Haptics from 'expo-haptics';
 
 interface ProductLinksProps {
   links: ProductLink[];
@@ -58,6 +59,7 @@ function getRetailerStyle(source: string): {
 
 function ProductLinkItem({ link }: { link: ProductLink }) {
   const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Linking.openURL(link.affiliateUrl);
   };
 
@@ -112,6 +114,7 @@ function ProductLinkItem({ link }: { link: ProductLink }) {
 
 function RecommendedItem({ link }: { link: ProductLink }) {
   const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Linking.openURL(link.affiliateUrl);
   };
 

@@ -22,11 +22,21 @@ export function CameraControls({
     onCapture();
   };
 
+  const handleFlashToggle = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onFlashToggle();
+  };
+
+  const handleGalleryOpen = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onGalleryOpen();
+  };
+
   return (
     <View className="flex-row items-center justify-between px-10 py-6">
       {/* Flash Toggle */}
       <TouchableOpacity
-        onPress={onFlashToggle}
+        onPress={handleFlashToggle}
         activeOpacity={0.7}
         className="w-12 h-12 rounded-full bg-white/20 items-center justify-center">
         <Ionicons
@@ -58,7 +68,7 @@ export function CameraControls({
 
       {/* Gallery Button */}
       <TouchableOpacity
-        onPress={onGalleryOpen}
+        onPress={handleGalleryOpen}
         activeOpacity={0.7}
         className="w-12 h-12 rounded-full bg-white/20 items-center justify-center">
         <Ionicons name="image-outline" size={24} color="#FFFFFF" />

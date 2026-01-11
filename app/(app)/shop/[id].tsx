@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { ShopHeader, ProductImage, ProductLinks, ActionButtons } from '@/components/shop';
 import { Badge } from '@/components/ui/Badge';
 import { CircularProgress } from '@/components/ui/CircularProgress';
@@ -156,6 +157,7 @@ export default function ShopDetailScreen() {
       return;
     }
 
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const trimmedTitle = editTitleValue.trim();
     const originalTitle = shop.title;
     
@@ -176,6 +178,7 @@ export default function ShopDetailScreen() {
   };
 
   const handleCancelEditTitle = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setIsEditTitleVisible(false);
     setEditTitleValue('');
   };
@@ -183,6 +186,7 @@ export default function ShopDetailScreen() {
   const handleFavoriteToggle = async () => {
     if (!shop) return;
     
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     // Optimistic update
     setIsFavorite(!isFavorite);
     
@@ -220,7 +224,10 @@ export default function ShopDetailScreen() {
           {shopLoadError || 'Shop not found'}
         </Text>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.back();
+          }}
           className="mt-4 px-6 py-3 bg-foreground rounded-full">
           <Text className="text-background font-inter-medium">Go Back</Text>
         </TouchableOpacity>

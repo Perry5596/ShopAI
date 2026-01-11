@@ -1,5 +1,6 @@
 import { View, Text, TouchableOpacity, TouchableOpacityProps } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 
 interface ListItemProps extends TouchableOpacityProps {
   icon?: keyof typeof Ionicons.glyphMap;
@@ -29,6 +30,13 @@ export function ListItem({
   const textColor = isDestructive ? 'text-destructive' : 'text-foreground';
   const finalIconColor = iconColor || (isDestructive ? '#EF4444' : '#000000');
 
+  const handlePress = (e: any) => {
+    if (props.onPress) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      props.onPress(e);
+    }
+  };
+
   return (
     <TouchableOpacity
       activeOpacity={0.6}
@@ -37,7 +45,8 @@ export function ListItem({
         ${!isLast ? 'border-b border-border-light' : ''}
         ${className || ''}
       `}
-      {...props}>
+      {...props}
+      onPress={handlePress}>
       {icon && (
         <View className="w-8 h-8 items-center justify-center mr-3">
           <Ionicons name={icon} size={22} color={finalIconColor} />

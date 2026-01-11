@@ -1,6 +1,7 @@
 import { View, Text, Dimensions, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import Svg, { Circle } from 'react-native-svg';
 import { PressableCard } from '../ui/Card';
 
@@ -140,6 +141,7 @@ export function MiniStatsRow({ favorites, products, savings }: MiniStatsRowProps
   const savingsDisplay = formatNumber(savings);
 
   const handleFavoritesPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push('/(app)/saved-items');
   };
 

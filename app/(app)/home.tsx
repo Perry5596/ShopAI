@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { View, ScrollView, StyleSheet, ActivityIndicator, Text, RefreshControl, NativeSyntheticEvent, NativeScrollEvent, TextInput, TouchableOpacity, Alert } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Header, StatsCard, MiniStatsRow, RecentShops, FloatingActionButton } from '@/components/home';
@@ -135,6 +136,7 @@ export default function HomeScreen() {
       return;
     }
 
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const trimmedTitle = editTitleValue.trim();
     const originalTitle = editingShop.title;
     
@@ -157,6 +159,7 @@ export default function HomeScreen() {
   };
 
   const handleCancelEditTitle = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setIsEditTitleVisible(false);
     setEditTitleValue('');
     setEditingShop(null);

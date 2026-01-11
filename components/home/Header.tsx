@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Avatar } from '../ui/Avatar';
+import * as Haptics from 'expo-haptics';
 
 interface HeaderProps {
   userName?: string;
@@ -19,7 +20,10 @@ export function Header({ userName, userAvatar }: HeaderProps) {
 
       {/* Profile Button */}
       <TouchableOpacity
-        onPress={() => router.push('/(app)/profile')}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          router.push('/(app)/profile');
+        }}
         activeOpacity={0.7}>
         <Avatar imageUrl={userAvatar} name={userName} size="md" />
       </TouchableOpacity>

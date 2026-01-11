@@ -1,4 +1,5 @@
 import { View, ViewProps, TouchableOpacity, TouchableOpacityProps } from 'react-native';
+import * as Haptics from 'expo-haptics';
 
 interface CardProps extends ViewProps {
   variant?: 'default' | 'elevated' | 'outlined';
@@ -51,6 +52,13 @@ export function PressableCard({
   children,
   ...props
 }: PressableCardProps) {
+  const handlePress = (e: any) => {
+    if (props.onPress) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      props.onPress(e);
+    }
+  };
+
   return (
     <TouchableOpacity
       activeOpacity={0.7}
@@ -60,7 +68,8 @@ export function PressableCard({
         ${paddingStyles[padding]}
         ${className || ''}
       `}
-      {...props}>
+      {...props}
+      onPress={handlePress}>
       {children}
     </TouchableOpacity>
   );

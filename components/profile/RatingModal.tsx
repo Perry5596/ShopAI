@@ -3,10 +3,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { CenteredModal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { useState } from 'react';
+import * as Haptics from 'expo-haptics';
 
-// TODO: Replace with your actual App Store ID once the app is published
-// You can find this ID in App Store Connect after publishing
-const IOS_APP_STORE_ID = 'YOUR_APP_STORE_ID';
+// App Store ID for Shop AI - Visual Shopping
+const IOS_APP_STORE_ID = '6757626447';
 
 interface RatingModalProps {
   isVisible: boolean;
@@ -19,6 +19,7 @@ export function RatingModal({ isVisible, onClose, userEmail, userName }: RatingM
   const [rating, setRating] = useState<number | null>(null);
 
   const handleStarPress = (starValue: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setRating(starValue);
   };
 
@@ -28,6 +29,7 @@ export function RatingModal({ isVisible, onClose, userEmail, userName }: RatingM
       return;
     }
 
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     // Close the modal first
     onClose();
     setRating(null);
@@ -147,6 +149,7 @@ export function RatingModal({ isVisible, onClose, userEmail, userName }: RatingM
   };
 
   const handleClose = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setRating(null);
     onClose();
   };

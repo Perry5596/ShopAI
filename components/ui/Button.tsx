@@ -1,6 +1,7 @@
 import { forwardRef } from 'react';
 import { Text, TouchableOpacity, TouchableOpacityProps, View, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive';
 type ButtonSize = 'sm' | 'md' | 'lg';
@@ -78,11 +79,19 @@ export const Button = forwardRef<View, ButtonProps>(
 
     const iconColor = variant === 'primary' || variant === 'destructive' ? '#FFFFFF' : '#000000';
 
+    const handlePress = (e: any) => {
+      if (!isDisabled && touchableProps.onPress) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        touchableProps.onPress(e);
+      }
+    };
+
     return (
       <TouchableOpacity
         ref={ref}
         disabled={isDisabled}
         {...touchableProps}
+        onPress={handlePress}
         className={`
           flex-row items-center justify-center
           ${variantStyle.button}

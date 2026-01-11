@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/contexts/AuthContext';
+import * as Haptics from 'expo-haptics';
 
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
@@ -46,11 +47,13 @@ export default function WelcomeScreen() {
   };
 
   const handleTermsPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     // TODO: Replace with actual terms URL
     Linking.openURL('https://example.com/terms');
   };
 
   const handlePrivacyPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     // TODO: Replace with actual privacy URL
     Linking.openURL('https://example.com/privacy');
   };

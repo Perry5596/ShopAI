@@ -1,6 +1,7 @@
 import { TouchableOpacity, TouchableOpacityProps, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { forwardRef } from 'react';
+import * as Haptics from 'expo-haptics';
 
 type IconButtonVariant = 'default' | 'filled' | 'outline' | 'ghost';
 type IconButtonSize = 'sm' | 'md' | 'lg' | 'xl';
@@ -42,12 +43,20 @@ export const IconButton = forwardRef<View, IconButtonProps>(
     const sizeStyle = sizeStyles[size];
     const defaultIconColor = variant === 'filled' ? '#FFFFFF' : '#000000';
 
+    const handlePress = (e: any) => {
+      if (!disabled && touchableProps.onPress) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        touchableProps.onPress(e);
+      }
+    };
+
     return (
       <TouchableOpacity
         ref={ref}
         disabled={disabled}
         activeOpacity={0.7}
         {...touchableProps}
+        onPress={handlePress}
         className={`
           items-center justify-center rounded-full
           ${variantStyles[variant]}

@@ -1,4 +1,4 @@
-import { View, Text, Alert, Image, ActivityIndicator } from 'react-native';
+import { View, Text, Alert, Image, ActivityIndicator, StyleSheet, Dimensions } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView as ExpoCameraView, useCameraPermissions } from 'expo-camera';
@@ -10,6 +10,19 @@ import { CameraView, CameraControls, ZoomControls } from '@/components/snap';
 import { useSnapStore } from '@/stores';
 import { useAuth } from '@/contexts/AuthContext';
 import { rateLimitService } from '@/utils/supabase-service';
+
+// Viewfinder constants (matching CameraView)
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const VIEWFINDER_SIZE = SCREEN_WIDTH * 0.75;
+const CORNER_SIZE = 40;
+const CORNER_THICKNESS = 4;
+
+// Testing mode for app store screenshots
+// Set to true to display a static image instead of the camera
+const TESTING_MODE = false;
+// Path to the test image (can be a local require or a URI)
+// Example: require('@/assets/splash.png') or 'https://example.com/image.jpg'
+const TEST_IMAGE = require('@/assets/test-image.png');
 
 export default function SnapScreen() {
   const insets = useSafeAreaInsets();
@@ -126,7 +139,7 @@ export default function SnapScreen() {
   };
 
   const handleCapture = async () => {
-    if (!cameraRef.current || isCapturing) return;
+    if (TESTING_MODE || !cameraRef.current || isCapturing) return;
 
     setIsCapturing(true);
     try {
@@ -182,7 +195,7 @@ export default function SnapScreen() {
 
   return (
     <View className="flex-1 bg-camera-bg">
-      {/* Show captured image when processing, otherwise show live camera */}
+      {/* Show captured image when processing, otherwise show live camera or test image */}
       {capturedImageUri ? (
         <View className="flex-1">
           <Image
@@ -199,6 +212,52 @@ export default function SnapScreen() {
             <Text className="text-white/70 text-[14px] mt-2">
               Finding the best deals for you
             </Text>
+          </View>
+        </View>
+      ) : TESTING_MODE ? (
+        <View className="flex-1 bg-camera-bg" style={{ overflow: 'hidden' }}>
+          <Image
+            source={TEST_IMAGE}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              width: SCREEN_WIDTH,
+              height: SCREEN_HEIGHT,
+            }}
+            resizeMode="cover"
+          />
+          {/* Viewfinder Overlay - same as CameraView */}
+          <View className="flex-1 items-center justify-center">
+            <View
+              style={{
+                width: VIEWFINDER_SIZE,
+                height: VIEWFINDER_SIZE,
+                position: 'relative',
+              }}>
+              {/* Top Left Corner */}
+              <View style={[testStyles.corner, testStyles.topLeft]}>
+                <View style={[testStyles.horizontalLine, { top: 0, left: 0 }]} />
+                <View style={[testStyles.verticalLine, { top: 0, left: 0 }]} />
+              </View>
+              {/* Top Right Corner */}
+              <View style={[testStyles.corner, testStyles.topRight]}>
+                <View style={[testStyles.horizontalLine, { top: 0, right: 0 }]} />
+                <View style={[testStyles.verticalLine, { top: 0, right: 0 }]} />
+              </View>
+              {/* Bottom Left Corner */}
+              <View style={[testStyles.corner, testStyles.bottomLeft]}>
+                <View style={[testStyles.horizontalLine, { bottom: 0, left: 0 }]} />
+                <View style={[testStyles.verticalLine, { bottom: 0, left: 0 }]} />
+              </View>
+              {/* Bottom Right Corner */}
+              <View style={[testStyles.corner, testStyles.bottomRight]}>
+                <View style={[testStyles.horizontalLine, { bottom: 0, right: 0 }]} />
+                <View style={[testStyles.verticalLine, { bottom: 0, right: 0 }]} />
+              </View>
+            </View>
           </View>
         </View>
       ) : (
@@ -260,3 +319,42 @@ export default function SnapScreen() {
     </View>
   );
 }
+
+// Styles for testing mode viewfinder overlay (matching CameraView)
+const testStyles = StyleSheet.create({
+  corner: {
+    position: 'absolute',
+    width: CORNER_SIZE,
+    height: CORNER_SIZE,
+  },
+  topLeft: {
+    top: 0,
+    left: 0,
+  },
+  topRight: {
+    top: 0,
+    right: 0,
+  },
+  bottomLeft: {
+    bottom: 0,
+    left: 0,
+  },
+  bottomRight: {
+    bottom: 0,
+    right: 0,
+  },
+  horizontalLine: {
+    position: 'absolute',
+    width: CORNER_SIZE,
+    height: CORNER_THICKNESS,
+    backgroundColor: '#FFFFFF',
+    borderRadius: CORNER_THICKNESS / 2,
+  },
+  verticalLine: {
+    position: 'absolute',
+    width: CORNER_THICKNESS,
+    height: CORNER_SIZE,
+    backgroundColor: '#FFFFFF',
+    borderRadius: CORNER_THICKNESS / 2,
+  },
+});
