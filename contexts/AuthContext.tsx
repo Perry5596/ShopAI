@@ -295,9 +295,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = useCallback(async () => {
     try {
       setIsLoading(true);
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
       
+      // Try to sign out from Supabase
+      const { error } = await supabase.auth.signOut();
+      
+      // If there's an AuthSessionMissingError, the session was already invalidated
+      // (e.g., logged in elsewhere, expired, etc.) - that's fine, just clear local state
+      if (error && error.name !== 'AuthSessionMissingError') {
+        throw error;
+      }
+      
+      // Always clear local state regardless of whether Supabase had an active session
       setUser(null);
       setSession(null);
       useProfileStore.getState().clearProfile();
@@ -364,8 +372,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       console.log('Successfully deleted account data');
 
-      // 4. Sign out the user
-      await supabase.auth.signOut();
+      // 4. Sign out the user (ignore session missing error since we're deleting anyway)
+      try {
+        await supabase.auth.signOut();
+      } catch (signOutError: any) {
+        // Ignore AuthSessionMissingError - session may already be invalid
+        if (signOutError?.name !== 'AuthSessionMissingError') {
+          console.error('Sign out during delete error:', signOutError);
+        }
+      }
 
       // 5. Clear local state
       setUser(null);
