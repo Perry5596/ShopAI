@@ -77,20 +77,13 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleSupportEmail = async () => {
-    const email = profile?.email || user?.email || 'user@example.com';
-    const name = profile?.name || 'User';
-    const subject = encodeURIComponent('Support Request - Shop AI');
-    const body = encodeURIComponent(
-      `Hi Shop AI Support,\n\nI need help with the following:\n\n[Please describe your issue or question here]\n\n---\nUser Information:\nName: ${name}\nEmail: ${email}\nUser ID: ${user?.id || 'N/A'}\n\nThank you!`
-    );
-    const mailtoUrl = `mailto:support@luminasoftware.app?subject=${subject}&body=${body}`;
-    
-    const canOpen = await Linking.canOpenURL(mailtoUrl);
+  const handleSupport = async () => {
+    const url = 'https://shopai.luminasoftware.app/support';
+    const canOpen = await Linking.canOpenURL(url);
     if (canOpen) {
-      await Linking.openURL(mailtoUrl);
+      await Linking.openURL(url);
     } else {
-      Alert.alert('Error', 'Unable to open email client. Please contact support@luminasoftware.app directly.');
+      Alert.alert('Error', 'Unable to open the support page.');
     }
   };
 
@@ -213,10 +206,10 @@ export default function ProfileScreen() {
           onPress: handleRequestFeature,
         },
         {
-          id: 'support-email',
-          icon: 'mail-outline',
-          title: 'Support Email',
-          onPress: handleSupportEmail,
+          id: 'support',
+          icon: 'help-circle-outline',
+          title: 'Support',
+          onPress: handleSupport,
         },
         {
           id: 'terms',
@@ -239,13 +232,13 @@ export default function ProfileScreen() {
           id: 'instagram',
           icon: 'logo-instagram',
           title: 'Instagram',
-          onPress: () => Alert.alert('Instagram'),
+          onPress: () => Alert.alert('Coming Soon', 'Instagram integration will be available soon!'),
         },
         {
           id: 'tiktok',
           icon: 'logo-tiktok',
           title: 'TikTok',
-          onPress: () => Alert.alert('TikTok'),
+          onPress: () => Alert.alert('Coming Soon', 'TikTok integration will be available soon!'),
         },
       ],
     },
