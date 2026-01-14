@@ -19,13 +19,13 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Shop AI to access your camera to scan products and find the best deals."
+          "cameraPermission": "Allow Shop AI to access your camera."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Shop AI to access your photos to find products from your gallery."
+          "photosPermission": "Allow Shop AI to access your photos."
         }
       ]
     ],
@@ -48,8 +48,8 @@
       "supportsTablet": true,
       "usesAppleSignIn": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "Allow Shop AI to access your camera to scan products and find the best deals.",
-        "NSPhotoLibraryUsageDescription": "Allow Shop AI to access your photos to find products from your gallery.",
+        "NSCameraUsageDescription": "Allow Shop AI to access your camera.",
+        "NSPhotoLibraryUsageDescription": "Allow Shop AI to access your photos.",
         "ITSAppUsesNonExemptEncryption": false
       },
       "bundleIdentifier": "app.luminasoftware.shopai"

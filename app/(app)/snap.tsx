@@ -63,15 +63,9 @@ export default function SnapScreen() {
         </Text>
         <Button
           title="Grant Permission"
-          variant="primary"
+          variant="secondary"
           onPress={requestPermission}
           className="bg-white"
-        />
-        <Button
-          title="Go Back"
-          variant="ghost"
-          onPress={() => router.back()}
-          className="mt-4"
         />
       </View>
     );

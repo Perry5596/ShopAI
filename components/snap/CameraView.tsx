@@ -1,4 +1,4 @@
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet, Dimensions, Platform } from 'react-native';
 import { CameraView as ExpoCameraView, CameraType } from 'expo-camera';
 import { forwardRef, useRef } from 'react';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -15,8 +15,8 @@ const MAX_ZOOM = 1;
 
 interface CameraViewProps {
   facing: CameraType;
-  zoomLevel: 0.5 | 1; // Button-selected zoom level
-  continuousZoom: number; // 0 to 1, for pinch-to-zoom
+  zoomLevel: 0.5 | 1; // Button-selected zoom level (0.5x = ultra-wide, 1x = wide)
+  continuousZoom: number; // 0 to 1, for pinch-to-zoom (digital zoom on top of selected lens)
   enableTorch: boolean;
   onPinchZoom?: (zoom: number) => void;
 }
@@ -26,16 +26,15 @@ export const CameraView = forwardRef<ExpoCameraView, CameraViewProps>(
     // Store the zoom value at the start of a pinch gesture
     const startZoomRef = useRef(continuousZoom);
 
-    // Map the button zoom level to expo-camera zoom value
-    // expo-camera zoom: 0 = minimum (widest), 1 = maximum digital zoom
-    // For 0.5x: use 0 (widest view possible)
-    // For 1x: use ~0.15 which roughly corresponds to 1x on most devices
-    // Note: True 0.5x ultra-wide requires native camera device selection
-    // which expo-camera supports in production builds on iOS
-    const baseZoom = zoomLevel === 0.5 ? 0 : 0.15;
-    
-    // Combine button zoom with pinch zoom for additional digital zoom
-    const effectiveZoom = Math.min(MAX_ZOOM, baseZoom + continuousZoom);
+    // Select the appropriate lens based on the button selection
+    // On iOS, expo-camera supports lens prop: "ultra-wide", "wide", "telephoto"
+    // 0.5x = ultra-wide lens, 1x = wide lens (standard)
+    // Android doesn't fully support lens selection, so we fall back to zoom-based approach
+    const selectedLens = zoomLevel === 0.5 ? 'ultra-wide' : 'wide';
+
+    // For digital zoom via pinch gesture - starts at 0 (no digital zoom) for both lenses
+    // The lens prop handles switching between physical cameras
+    const effectiveZoom = Math.min(MAX_ZOOM, continuousZoom);
 
     // Create pinch gesture for zooming
     const pinchGesture = Gesture.Pinch()
@@ -68,6 +67,10 @@ export const CameraView = forwardRef<ExpoCameraView, CameraViewProps>(
             facing={facing}
             zoom={effectiveZoom}
             enableTorch={enableTorch}
+            // Use lens prop to select physical camera on iOS
+            // "ultra-wide" = 0.5x, "wide" = 1x (standard)
+            // Falls back gracefully on devices without ultra-wide lens
+            {...(Platform.OS === 'ios' ? { lens: selectedLens } : {})}
           />
 
             {/* Viewfinder Overlay */}
