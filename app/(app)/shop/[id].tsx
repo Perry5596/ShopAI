@@ -3,15 +3,16 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { FontAwesome5, FontAwesome6 } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { ShopHeader, ProductImage, ProductLinks, ActionButtons } from '@/components/shop';
 import { Badge } from '@/components/ui/Badge';
 import { CircularProgress } from '@/components/ui/CircularProgress';
-import { CenteredModal } from '@/components/ui/Modal';
+import { CenteredModal, FadeModal } from '@/components/ui/Modal';
 import { useShopStore } from '@/stores';
 import { useAuth } from '@/contexts/AuthContext';
 import { shopService } from '@/utils/supabase-service';
-import type { Shop } from '@/types';
+import type { Shop, ProductLink } from '@/types';
 
 export default function ShopDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -26,6 +27,7 @@ export default function ShopDetailScreen() {
   const [shopLoadError, setShopLoadError] = useState<string | null>(null);
   const [isEditTitleVisible, setIsEditTitleVisible] = useState(false);
   const [editTitleValue, setEditTitleValue] = useState('');
+  const [isShareSheetVisible, setIsShareSheetVisible] = useState(false);
 
   // Update local favorite state when shop changes
   useEffect(() => {
@@ -104,21 +106,63 @@ export default function ShopDetailScreen() {
     return `${dateStr}, ${timeStr}`;
   };
 
-  const handleShare = async () => {
-    if (!shop) return;
+  const handleShare = () => {
+    if (!shop || shop.products.length === 0) {
+      Alert.alert('Nothing to share', 'No products available to share.');
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setIsShareSheetVisible(true);
+  };
+
+  const handleShareProduct = async (product: ProductLink) => {
+    setIsShareSheetVisible(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
     try {
-      const shareMessage = shop.recommendation
-        ? `${shop.recommendation.affiliateUrl}`
-        : `Check out this ${shop.title} I found on Shop AI!`;
-      
       await Share.share({
-        message: shareMessage,
-        title: shop.title,
-        url: shop.recommendation?.affiliateUrl,
+        message: product.affiliateUrl,
+        title: `${shop?.title} on ${product.source}`,
+        url: product.affiliateUrl,
       });
     } catch (error) {
       Alert.alert('Error', 'Failed to share');
     }
+  };
+
+  /**
+   * Get retailer-specific icon for share sheet
+   */
+  const getRetailerIcon = (source: string): React.ReactNode => {
+    const sourceLower = source.toLowerCase();
+    
+    if (sourceLower.includes('amazon')) {
+      return <FontAwesome5 name="amazon" size={20} color="#FF9900" />;
+    }
+    if (sourceLower.includes('ebay')) {
+      return <Text className="text-[12px] font-bold text-white">eBay</Text>;
+    }
+    if (sourceLower.includes('target')) {
+      return <FontAwesome6 name="bullseye" size={18} color="#CC0000" />;
+    }
+    if (sourceLower.includes('best buy') || sourceLower.includes('bestbuy')) {
+      return <Text className="text-[10px] font-bold text-[#FFE000]">BBY</Text>;
+    }
+    if (sourceLower.includes('walmart')) {
+      return <FontAwesome6 name="star" size={16} color="#FFC220" />;
+    }
+    return <Ionicons name="bag-outline" size={20} color="#9CA3AF" />;
+  };
+
+  const getRetailerBgColor = (source: string): string => {
+    const sourceLower = source.toLowerCase();
+    
+    if (sourceLower.includes('amazon')) return 'bg-[#232F3E]';
+    if (sourceLower.includes('ebay')) return 'bg-[#E53238]';
+    if (sourceLower.includes('target')) return 'bg-white border border-gray-200';
+    if (sourceLower.includes('best buy') || sourceLower.includes('bestbuy')) return 'bg-[#0046BE]';
+    if (sourceLower.includes('walmart')) return 'bg-[#0071DC]';
+    return 'bg-background-secondary';
   };
 
   const handleMenu = () => {
@@ -387,6 +431,55 @@ export default function ShopDetailScreen() {
           </View>
         </View>
       </CenteredModal>
+
+      {/* Share Modal */}
+      <FadeModal
+        isVisible={isShareSheetVisible}
+        onClose={() => setIsShareSheetVisible(false)}>
+        <View className="p-5">
+          <Text className="text-[18px] font-inter-semibold text-foreground mb-4 text-center">
+            Share from
+          </Text>
+          
+          {shop.products.map((product, index) => (
+            <TouchableOpacity
+              key={product.id}
+              onPress={() => handleShareProduct(product)}
+              activeOpacity={0.7}
+              className={`flex-row items-center py-3 ${index < shop.products.length - 1 ? 'border-b border-border-light' : ''}`}>
+              {/* Retailer Icon */}
+              <View className={`w-10 h-10 rounded-lg items-center justify-center mr-3 ${getRetailerBgColor(product.source)}`}>
+                {getRetailerIcon(product.source)}
+              </View>
+              
+              {/* Retailer Info */}
+              <View className="flex-1">
+                <Text className="text-[16px] font-inter-medium text-foreground">
+                  {product.source}
+                </Text>
+                {product.price && (
+                  <Text className="text-[14px] text-foreground-muted">
+                    {product.price}
+                  </Text>
+                )}
+              </View>
+              
+              {/* Share Icon */}
+              <Ionicons name="share-outline" size={22} color="#6B7280" />
+            </TouchableOpacity>
+          ))}
+          
+          {/* Cancel Button */}
+          <TouchableOpacity
+            onPress={() => setIsShareSheetVisible(false)}
+            activeOpacity={0.7}
+            className="mt-4 py-3 items-center">
+            <Text className="text-[16px] font-inter-medium text-foreground-muted">
+              Cancel
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </FadeModal>
     </View>
   );
 }

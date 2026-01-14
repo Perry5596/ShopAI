@@ -267,16 +267,27 @@ export const useShopStore = create<ShopState>((set, get) => ({
     }
 
     try {
-      // Step 1: Delete existing products for this shop
+      // Step 1: Check rate limit before allowing reprocess (costs a search credit)
+      const rateLimitStatus = await rateLimitService.checkRateLimit(userId);
+      if (!rateLimitStatus.canShop) {
+        const resetsAt = rateLimitStatus.resetsAt
+          ? new Date(rateLimitStatus.resetsAt).toLocaleString()
+          : 'later';
+        throw new Error(
+          `You've reached your daily limit of ${rateLimitStatus.maxShops} searches. Try again ${resetsAt}.`
+        );
+      }
+
+      // Step 2: Delete existing products for this shop
       await productService.deleteProductsByShopId(shopId);
 
-      // Step 2: Update shop status to processing
+      // Step 3: Update shop status to processing
       await shopService.updateShop(shopId, {
         status: 'processing',
         description: 'Reanalyzing with additional context...',
       });
 
-      // Step 3: Update local state immediately
+      // Step 4: Update local state immediately
       set((state) => ({
         shops: state.shops.map((s) =>
           s.id === shopId
@@ -292,7 +303,7 @@ export const useShopStore = create<ShopState>((set, get) => ({
         ),
       }));
 
-      // Step 4: Reprocess in background with additional context
+      // Step 5: Reprocess in background with additional context
       reprocessImageInBackground(shopId, userId, shop.imageUrl, additionalContext);
     } catch (error) {
       console.error('Failed to start shop reprocessing:', error);
@@ -322,8 +333,8 @@ async function reprocessImageInBackground(
     const result = await analyzeImage(imageUrl, additionalContext);
 
     // Complete the shop processing with the results
-    // Note: We don't increment stats again since this is a reprocess, not a new shop
-    await reprocessCompleteShopProcessing(shopId, result);
+    // Note: Reprocess now costs a search credit, so we pass userId to increment rate limit
+    await reprocessCompleteShopProcessing(shopId, userId, result);
   } catch (error) {
     console.error('Background image reprocessing failed:', error);
     await shopStore.failShopProcessing(
@@ -334,9 +345,14 @@ async function reprocessImageInBackground(
 }
 
 /**
- * Complete shop processing for a reprocess (doesn't increment user stats).
+ * Complete shop processing for a reprocess.
+ * Now increments rate limit since reprocessing costs a search credit.
  */
-async function reprocessCompleteShopProcessing(shopId: string, result: SnapResult): Promise<void> {
+async function reprocessCompleteShopProcessing(
+  shopId: string,
+  userId: string,
+  result: SnapResult
+): Promise<void> {
   try {
     // Create products in database with recommended flag
     // Use the isRecommended from the product if set, otherwise fall back to recommendedIndex
@@ -358,6 +374,14 @@ async function reprocessCompleteShopProcessing(shopId: string, result: SnapResul
       status: 'completed',
       savings,
     });
+
+    // Increment rate limit counter (reprocessing now costs a search credit)
+    try {
+      await rateLimitService.incrementRateLimit(userId);
+    } catch (rateLimitError) {
+      // Log but don't fail the reprocess if rate limit increment fails
+      console.error('Failed to increment rate limit for reprocess:', rateLimitError);
+    }
 
     // Find the recommendation
     const recommendation = createdProducts.find((p) => p.isRecommended);

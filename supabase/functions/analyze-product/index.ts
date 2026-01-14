@@ -53,16 +53,29 @@ interface SnapResult {
   }>;
 }
 
+const BASE_SEARCH_QUERY = 'Find products on Amazon, Best Buy, Target, Walmart, and Ebay';
+
 /**
  * Query SerpAPI Google Lens to find visual matches for an image.
+ * @param imageUrl - The URL of the image to analyze
+ * @param apiKey - SerpAPI API key
+ * @param additionalContext - Optional additional context from user to refine search
  */
-async function searchGoogleLens(imageUrl: string, apiKey: string): Promise<VisualMatch[]> {
+async function searchGoogleLens(
+  imageUrl: string,
+  apiKey: string,
+  additionalContext?: string
+): Promise<VisualMatch[]> {
   const url = new URL('https://serpapi.com/search');
   url.searchParams.set('engine', 'google_lens');
   url.searchParams.set('url', imageUrl);
   url.searchParams.set('api_key', apiKey);
-  // New param added 'q'
-  url.searchParams.set('q', 'Find products on Amazon, Best Buy, Target, Walmart, and Ebay')
+  
+  // Build the 'q' parameter - base query plus any additional context from user
+  const searchQuery = additionalContext?.trim()
+    ? `${BASE_SEARCH_QUERY}. ${additionalContext.trim()}`
+    : BASE_SEARCH_QUERY;
+  url.searchParams.set('q', searchQuery);
 
   const response = await fetch(url.toString());
 
@@ -180,7 +193,7 @@ serve(async (req) => {
   }
 
   try {
-    const { imageUrl } = await req.json();
+    const { imageUrl, additionalContext } = await req.json();
 
     if (!imageUrl) {
       return new Response(
@@ -195,10 +208,10 @@ serve(async (req) => {
       throw new Error('SERPAPI_KEY is not configured');
     }
 
-    // Step 1: Query Google Lens via SerpAPI
+    // Step 1: Query Google Lens via SerpAPI (with optional additional context for fix-issue)
     let visualMatches: VisualMatch[] = [];
     try {
-      visualMatches = await searchGoogleLens(imageUrl, serpApiKey);
+      visualMatches = await searchGoogleLens(imageUrl, serpApiKey, additionalContext);
     } catch (error) {
       console.error('Google Lens search failed:', error);
       return new Response(

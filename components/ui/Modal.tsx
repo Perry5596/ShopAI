@@ -144,3 +144,71 @@ export function CenteredModal({
     </View>
   );
 }
+
+interface FadeModalProps {
+  isVisible: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+  width?: number;
+}
+
+/**
+ * Simple fade-in/fade-out centered modal without scale animation.
+ */
+export function FadeModal({
+  isVisible,
+  onClose,
+  children,
+  width = SCREEN_WIDTH * 0.85,
+}: FadeModalProps) {
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    if (isVisible) {
+      opacity.value = withTiming(1, { duration: 200 });
+    } else {
+      opacity.value = withTiming(0, { duration: 150 });
+    }
+  }, [isVisible]);
+
+  const animatedModalStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  const animatedBackdropStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value * 0.5,
+  }));
+
+  if (!isVisible) return null;
+
+  return (
+    <View className="absolute inset-0 z-50">
+      <Animated.View style={[{ flex: 1 }, animatedBackdropStyle]}>
+        <Pressable onPress={onClose} className="flex-1">
+          <View className="flex-1 bg-black" />
+        </Pressable>
+      </Animated.View>
+
+      <View className="absolute inset-0 items-center justify-center px-5" pointerEvents="box-none">
+        <Pressable onPress={(e) => e.stopPropagation()}>
+          <Animated.View
+            style={[
+              {
+                width,
+                maxWidth: 340,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: 0.25,
+                shadowRadius: 16,
+                elevation: 10,
+              },
+              animatedModalStyle,
+            ]}
+            className="bg-background rounded-2xl overflow-hidden">
+            {children}
+          </Animated.View>
+        </Pressable>
+      </View>
+    </View>
+  );
+}

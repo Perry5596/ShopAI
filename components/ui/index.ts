@@ -4,4 +4,4 @@ export { IconButton } from './IconButton';
 export { ListItem } from './ListItem';
 export { Avatar } from './Avatar';
 export { Badge } from './Badge';
-export { BottomSheetModal } from './Modal';
+export { BottomSheetModal, CenteredModal, FadeModal } from './Modal';
