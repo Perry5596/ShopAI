@@ -61,6 +61,8 @@ async function searchGoogleLens(imageUrl: string, apiKey: string): Promise<Visua
   url.searchParams.set('engine', 'google_lens');
   url.searchParams.set('url', imageUrl);
   url.searchParams.set('api_key', apiKey);
+  // New param added 'q'
+  url.searchParams.set('q', 'Find products on Amazon, Best Buy, Target, Walmart, and Ebay')
 
   const response = await fetch(url.toString());
 
