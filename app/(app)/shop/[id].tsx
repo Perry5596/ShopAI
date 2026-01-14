@@ -293,7 +293,7 @@ export default function ShopDetailScreen() {
           
           <View className="bg-background rounded-t-3xl -mt-6 pt-5 px-5">
             <View className="items-center py-8">
-              <CircularProgress size={80} strokeWidth={6} color="#000000" backgroundColor="#E5E7EB" textColor="#000000" duration={10000} startTime={shop.createdAt} />
+              <CircularProgress size={80} strokeWidth={6} color="#000000" backgroundColor="#E5E7EB" textColor="#000000" duration={15000} startTime={shop.updatedAt} />
               <Text className="text-[18px] font-inter-semibold text-foreground mt-4">
                 Analyzing your image...
               </Text>
