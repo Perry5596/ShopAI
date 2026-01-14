@@ -113,29 +113,20 @@ function matchesRetailerDomain(source: string, link: string): string | null {
 }
 
 /**
- * Filter visual matches to only include retailer domains we support,
- * and select the best match per retailer (lowest position = most accurate).
+ * Filter visual matches to only include retailer domains we support.
+ * Returns all matching products sorted by position (lower = more accurate according to Google).
+ * Multiple links per retailer are allowed.
  */
 function filterAndPrioritizeMatches(matches: VisualMatch[]): VisualMatch[] {
-  // Group matches by retailer, keeping only the best (lowest position) per retailer
-  const bestPerRetailer = new Map<string, VisualMatch>();
+  // Filter to only include matches from supported retailers
+  const retailerMatches = matches.filter((match) => {
+    return matchesRetailerDomain(match.source, match.link) !== null;
+  });
 
-  for (const match of matches) {
-    const retailer = matchesRetailerDomain(match.source, match.link);
-    if (!retailer) continue;
+  // Sort by position (ascending) - lower position = higher accuracy according to Google
+  retailerMatches.sort((a, b) => a.position - b.position);
 
-    const existing = bestPerRetailer.get(retailer);
-    // Keep the match with the lowest position (more accurate according to Google)
-    if (!existing || match.position < existing.position) {
-      bestPerRetailer.set(retailer, match);
-    }
-  }
-
-  // Convert to array and sort by position (ascending)
-  const results = Array.from(bestPerRetailer.values());
-  results.sort((a, b) => a.position - b.position);
-
-  return results;
+  return retailerMatches;
 }
 
 /**
