@@ -441,39 +441,47 @@ export default function ShopDetailScreen() {
             Share from
           </Text>
           
-          {shop.products.map((product, index) => (
-            <TouchableOpacity
-              key={product.id}
-              onPress={() => handleShareProduct(product)}
-              activeOpacity={0.7}
-              className={`flex-row items-center py-3 ${index < shop.products.length - 1 ? 'border-b border-border-light' : ''}`}>
-              {/* Retailer Icon */}
-              <View className={`w-10 h-10 rounded-lg items-center justify-center mr-3 ${getRetailerBgColor(product.source)}`}>
-                {getRetailerIcon(product.source)}
-              </View>
-              
-              {/* Retailer Info */}
-              <View className="flex-1">
-                <Text className="text-[16px] font-inter-medium text-foreground">
-                  {product.source}
-                </Text>
-                {product.price && (
-                  <Text className="text-[14px] text-foreground-muted">
-                    {product.price}
+          <ScrollView 
+            showsVerticalScrollIndicator={true}
+            style={{ maxHeight: 400 }}
+            contentContainerStyle={{ paddingBottom: 8 }}>
+            {shop.products.map((product, index) => (
+              <TouchableOpacity
+                key={product.id}
+                onPress={() => handleShareProduct(product)}
+                activeOpacity={0.7}
+                className={`flex-row items-center py-3 ${index < shop.products.length - 1 ? 'border-b border-border-light' : ''}`}>
+                {/* Retailer Icon */}
+                <View className={`w-10 h-10 rounded-lg items-center justify-center mr-3 ${getRetailerBgColor(product.source)}`}>
+                  {getRetailerIcon(product.source)}
+                </View>
+                
+                {/* Product Info */}
+                <View className="flex-1 mr-2">
+                  <Text className="text-[16px] font-inter-medium text-foreground mb-1" numberOfLines={2}>
+                    {product.title}
                   </Text>
-                )}
-              </View>
-              
-              {/* Share Icon */}
-              <Ionicons name="share-outline" size={22} color="#6B7280" />
-            </TouchableOpacity>
-          ))}
+                  <Text className="text-[14px] text-foreground-muted mb-1">
+                    {product.source}
+                  </Text>
+                  {product.price && (
+                    <Text className="text-[14px] font-inter-semibold text-foreground">
+                      {product.price}
+                    </Text>
+                  )}
+                </View>
+                
+                {/* Share Icon */}
+                <Ionicons name="share-outline" size={22} color="#6B7280" />
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
           
           {/* Cancel Button */}
           <TouchableOpacity
             onPress={() => setIsShareSheetVisible(false)}
             activeOpacity={0.7}
-            className="mt-4 py-3 items-center">
+            className="mt-4 py-3 items-center border-t border-border-light">
             <Text className="text-[16px] font-inter-medium text-foreground-muted">
               Cancel
             </Text>
