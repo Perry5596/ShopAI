@@ -12,7 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { rateLimitService } from '@/utils/supabase-service';
 
 // Viewfinder constants (matching CameraView)
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT  } = Dimensions.get('window');
 const VIEWFINDER_SIZE = SCREEN_WIDTH * 0.75;
 const CORNER_SIZE = 40;
 const CORNER_THICKNESS = 4;
@@ -62,7 +62,7 @@ export default function SnapScreen() {
           Shop AI needs camera access to scan products and find the best deals for you.
         </Text>
         <Button
-          title="Grant Permission"
+          title="Continue"
           variant="secondary"
           onPress={requestPermission}
           className="bg-white"
