@@ -23,7 +23,7 @@ export const AFFILIATE_TAGS: Record<string, AffiliateConfig> = {
   // 'target.com': { param: 'affiliateId', tag: 'your-target-id' },
   // 'bestbuy.com': { param: 'ref', tag: 'your-bestbuy-id' },
   // 'walmart.com': { param: 'affiliates_id', tag: 'your-walmart-id' },
-  // 'ebay.com': { param: 'campid', tag: 'your-ebay-campaign-id' },
+  'ebay.com': { param: 'campid', tag: '5339137089' },
 };
 
 /**
