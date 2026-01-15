@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { shopService, productService, profileService, rateLimitService } from '@/utils/supabase-service';
+import { shopService, productService, profileService, rateLimitService, storageService } from '@/utils/supabase-service';
 import { analyzeImage } from '@/utils/mock-ai-service';
 import type { Shop, SnapResult } from '@/types';
 
@@ -134,8 +134,14 @@ export const useShopStore = create<ShopState>((set, get) => ({
       // Delete from database
       await shopService.deleteShop(id);
 
-      // Note: Storage cleanup would be handled here if needed
-      // await storageService.deleteShopImage(userId, id);
+      // Clean up storage - delete the associated image
+      try {
+        await storageService.deleteShopImage(userId, id);
+      } catch (storageError) {
+        // Log but don't fail the delete if storage cleanup fails
+        // The shop is already deleted from the database
+        console.error('Failed to delete shop image from storage:', storageError);
+      }
     } catch (error) {
       console.error('Failed to delete shop:', error);
       // Re-fetch shops to restore state on error
