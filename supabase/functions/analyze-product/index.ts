@@ -53,8 +53,6 @@ interface SnapResult {
   }>;
 }
 
-const BASE_SEARCH_QUERY = 'Find products on Amazon, Best Buy, Target, Walmart, and Ebay';
-
 /**
  * Query SerpAPI Google Lens to find visual matches for an image.
  * @param imageUrl - The URL of the image to analyze
@@ -71,12 +69,12 @@ async function searchGoogleLens(
   url.searchParams.set('url', imageUrl);
   url.searchParams.set('api_key', apiKey);
   
-  // Build the 'q' parameter - base query plus any additional context from user
-  const searchQuery = additionalContext?.trim()
-    ? `${BASE_SEARCH_QUERY}. ${additionalContext.trim()}`
-    : BASE_SEARCH_QUERY;
-  url.searchParams.set('q', searchQuery);
-
+  // Additional query context when user is refining results (fix issue feature)
+  if (additionalContext?.trim()) {
+    const searchQuery = additionalContext.trim();
+    url.searchParams.set('q', searchQuery);
+  }
+  
   const response = await fetch(url.toString());
 
   if (!response.ok) {
