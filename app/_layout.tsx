@@ -1,6 +1,6 @@
 import '../global.css';
 
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -12,7 +12,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Inter_300Light,
     Inter_400Regular,
     Inter_500Medium,
@@ -20,16 +20,32 @@ export default function RootLayout() {
     Inter_700Bold,
   });
 
+  // Add timeout to ensure splash screen hides even if fonts fail
+  useEffect(() => {
+    const timeout = setTimeout(async () => {
+      try {
+        await SplashScreen.hideAsync();
+      } catch (e) {
+        // Ignore errors - splash screen may already be hidden
+      }
+    }, 3000); // 3 second timeout
+
+    return () => clearTimeout(timeout);
+  }, []);
+
   const onLayoutRootView = useCallback(async () => {
-    if (fontsLoaded) {
-      await SplashScreen.hideAsync();
+    // Hide splash screen once fonts are loaded (or if there was an error)
+    if (fontsLoaded || fontError) {
+      try {
+        await SplashScreen.hideAsync();
+      } catch (e) {
+        // Ignore errors - splash screen may already be hidden
+      }
     }
-  }, [fontsLoaded]);
+  }, [fontsLoaded, fontError]);
 
-  if (!fontsLoaded) {
-    return null;
-  }
-
+  // Don't block rendering - proceed even if fonts fail
+  // The app will use system fonts as fallback
   return (
     <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
       <AuthProvider>
