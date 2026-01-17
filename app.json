@@ -48,8 +48,8 @@
       "supportsTablet": true,
       "usesAppleSignIn": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "Allow Shop AI to access your camera.",
-        "NSPhotoLibraryUsageDescription": "Allow Shop AI to access your photos.",
+        "NSCameraUsageDescription": "Allow Shop AI to access your camera to scan products and find the best deals.",
+        "NSPhotoLibraryUsageDescription": "Allow Shop AI to access your photos to select or upload product images.",
         "ITSAppUsesNonExemptEncryption": false
       },
       "bundleIdentifier": "app.luminasoftware.shopai"
@@ -62,7 +62,8 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
-      ]
+      ],
+      "package": "app.luminasoftware.shopai"
     },
     "extra": {
       "router": {},
