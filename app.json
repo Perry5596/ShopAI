@@ -19,7 +19,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Shop AI needs access to your camera to scan products and find the best deals.",
+          "cameraPermission": "Shop AI needs access to your camera to scan products and find the best deals."
         }
       ],
       [
