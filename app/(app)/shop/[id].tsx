@@ -121,7 +121,6 @@ export default function ShopDetailScreen() {
     
     try {
       await Share.share({
-        message: product.affiliateUrl,
         title: `${shop?.title} on ${product.source}`,
         url: product.affiliateUrl,
       });
