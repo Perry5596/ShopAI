@@ -51,7 +51,7 @@ const sizeStyles: Record<ButtonSize, { button: string; text: string; icon: numbe
     icon: 20,
   },
   lg: {
-    button: 'py-4 px-8 rounded-2xl',
+    button: 'py-4 px-6 rounded-2xl',
     text: 'text-[18px]',
     icon: 24,
   },
@@ -99,7 +99,8 @@ export const Button = forwardRef<View, ButtonProps>(
           ${fullWidth ? 'w-full' : ''}
           ${isDisabled ? 'opacity-50' : ''}
           ${className || ''}
-        `}>
+        `}
+        style={[{ minWidth: 0 }, touchableProps.style]}>
         {isLoading ? (
           <ActivityIndicator color={iconColor} />
         ) : (
@@ -117,7 +118,8 @@ export const Button = forwardRef<View, ButtonProps>(
                 font-inter-medium
                 ${variantStyle.text}
                 ${sizeStyle.text}
-              `}>
+              `}
+              style={{ flexShrink: 1 }}>
               {title}
             </Text>
             {icon && iconPosition === 'right' && (

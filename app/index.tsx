@@ -129,7 +129,7 @@ export default function WelcomeScreen() {
 
       {/* Bottom Section - Sign In Buttons */}
       <View
-        className="px-6"
+        className="px-4"
         style={{ paddingBottom: insets.bottom + 24 }}>
         {/* Apple Sign In - iOS only */}
         {Platform.OS === 'ios' && (
