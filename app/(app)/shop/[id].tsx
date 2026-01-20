@@ -390,6 +390,7 @@ export default function ShopDetailScreen() {
         <ProductLinks
           links={shop.products}
           recommendation={shop.recommendation}
+          onShareProduct={handleShareProduct}
         />
       </ScrollView>
 
