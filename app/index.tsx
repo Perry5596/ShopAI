@@ -190,11 +190,21 @@ export default function WelcomeScreen() {
           className="mb-3"
         />
 
+        {/* OR Divider */}
+        <View className="flex-row items-center my-3">
+          <View className="flex-1 h-px bg-border" />
+          <Text className="mx-4 text-[14px] text-foreground-muted font-inter-medium">
+            OR
+          </Text>
+          <View className="flex-1 h-px bg-border" />
+        </View>
+
         {/* Continue as Guest */}
         <Button
           title="Continue as Guest"
           variant="ghost"
-          size="lg"
+          size="md"
+          icon="person-outline"
           fullWidth
           onPress={handleContinueAsGuest}
         />
