@@ -8,6 +8,7 @@ import { ProfileCard, SettingsSection, RatingModal } from '@/components/profile'
 import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
 import type { SettingsSection as SettingsSectionType } from '@/types';
+import { clearAllLocalData } from '@/utils/dev-tools';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -164,6 +165,42 @@ export default function ProfileScreen() {
     );
   };
 
+  const handleClearCache = () => {
+    Alert.alert(
+      'Clear Cache',
+      'This will wipe all locally stored data including authentication sessions, anonymous tokens, and cached app state. You will need to sign in again. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear Cache',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await clearAllLocalData();
+              Alert.alert(
+                'Success',
+                'All local data has been cleared. The app will restart.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => {
+                      // Navigate to home screen (which will handle auth state)
+                      router.replace('/');
+                    },
+                  },
+                ]
+              );
+            } catch (error) {
+              console.error('Clear cache error:', error);
+              const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+              Alert.alert('Error', `Failed to clear cache: ${errorMessage}`);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   // Generate username from email or use profile username
   const username = profile?.username || profile?.email?.split('@')[0] || 'user';
 
@@ -279,6 +316,23 @@ export default function ProfileScreen() {
     ? allSettingsSections.filter(section => section.title !== 'Account Actions')
     : allSettingsSections;
 
+  // Dev Tools section (only visible in dev mode)
+  const devToolsSection: SettingsSectionType | null = __DEV__
+    ? {
+        title: 'Developer Tools',
+        items: [
+          {
+            id: 'clear-cache',
+            icon: 'trash-outline',
+            title: 'Clear Cache',
+            subtitle: 'Wipe all locally stored data',
+            isDestructive: true,
+            onPress: handleClearCache,
+          },
+        ],
+      }
+    : null;
+
   return (
     <View className="flex-1 bg-background-secondary">
       {/* Header */}
@@ -344,6 +398,15 @@ export default function ProfileScreen() {
             items={section.items}
           />
         ))}
+
+        {/* Dev Tools Section (only visible in dev mode) */}
+        {devToolsSection && (
+          <SettingsSection
+            key={devToolsSection.title}
+            title={devToolsSection.title}
+            items={devToolsSection.items}
+          />
+        )}
 
         {/* Copyright and Version Info */}
         <View className="items-center py-6 mt-4">
