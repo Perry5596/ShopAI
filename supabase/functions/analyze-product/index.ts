@@ -76,6 +76,8 @@ async function searchGoogleLens(
   url.searchParams.set('engine', 'google_lens');
   url.searchParams.set('url', imageUrl);
   url.searchParams.set('api_key', apiKey);
+  url.searchParams.set('country', 'us'); // TODO: Make this configurable by the user's actual location
+  url.searchParams.set('json_restrictor', 'visual_matches'); // Only return the visual matches for faster API response time
   
   // Additional query context when user is refining results (fix issue feature)
   if (additionalContext?.trim()) {
