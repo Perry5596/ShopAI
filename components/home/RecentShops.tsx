@@ -229,8 +229,37 @@ type ShopSection = {
 };
 
 export function RecentShops({ shops, isLoadingMore, hasMore, onEditTitle }: RecentShopsProps) {
+  const { isGuest } = useAuth();
 
   if (shops.length === 0) {
+    // Different empty state for guests vs authenticated users
+    if (isGuest) {
+      return (
+        <View className="items-center justify-center py-12 px-8">
+          <View className="w-16 h-16 rounded-full bg-background-secondary items-center justify-center mb-4">
+            <Ionicons name="person-outline" size={32} color="#9CA3AF" />
+          </View>
+          <Text className="text-[16px] font-inter-medium text-foreground-muted text-center">
+            Sign in to save your scans
+          </Text>
+          <Text className="text-[14px] font-inter text-foreground-subtle mt-1 text-center">
+            Your scans will be saved and accessible across all your devices
+          </Text>
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push('/?showSignIn=true');
+            }}
+            activeOpacity={0.7}
+            className="mt-4 px-6 py-3 bg-foreground rounded-full">
+            <Text className="text-[14px] font-inter-semibold text-background">
+              Sign In
+            </Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
     return (
       <View className="items-center justify-center py-12">
         <View className="w-16 h-16 rounded-full bg-background-secondary items-center justify-center mb-4">

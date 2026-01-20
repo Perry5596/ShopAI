@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { View, Text, Linking, Alert, ActivityIndicator, Platform, Image } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '@/components/ui/Button';
@@ -9,14 +9,27 @@ import * as Haptics from 'expo-haptics';
 
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
-  const { signInWithGoogle, signInWithApple, isAuthenticated, isLoading } = useAuth();
+  const { signInWithGoogle, signInWithApple, continueAsGuest, isAuthenticated, isGuest, isLoading } = useAuth();
+  const { showSignIn } = useLocalSearchParams<{ showSignIn?: string }>();
 
-  // Redirect to home if already authenticated
+  // If showSignIn is true, a guest is explicitly trying to sign in - don't auto-redirect
+  // But if they successfully authenticate, we should redirect them
+  const isExplicitSignIn = showSignIn === 'true';
+  const shouldSkipRedirect = isExplicitSignIn && isGuest && !isAuthenticated;
+
+  // Redirect to home if already authenticated or guest (unless a guest is explicitly viewing sign-in options)
+  // Use setTimeout to defer navigation to avoid conflicts with React's render cycle
   useEffect(() => {
-    if (isAuthenticated && !isLoading) {
-      router.replace('/(app)/home');
+    if ((isAuthenticated || isGuest) && !isLoading && !shouldSkipRedirect) {
+      // Defer navigation to next tick to avoid "Maximum update depth exceeded" error
+      // This happens because router.replace triggers state changes in react-navigation
+      // while React is still processing the current render
+      const timeoutId = setTimeout(() => {
+        router.replace('/(app)/home');
+      }, 0);
+      return () => clearTimeout(timeoutId);
     }
-  }, [isAuthenticated, isLoading]);
+  }, [isAuthenticated, isGuest, isLoading, shouldSkipRedirect]);
 
   const handleAppleSignIn = async () => {
     try {
@@ -42,6 +55,28 @@ export default function WelcomeScreen() {
       Alert.alert(
         'Sign In Error',
         error?.message || 'Failed to sign in with Google. Please try again.'
+      );
+    }
+  };
+
+  const handleContinueAsGuest = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      
+      // If already a guest and explicitly showing sign-in, just go back
+      if (isGuest && isExplicitSignIn) {
+        router.back();
+        return;
+      }
+      
+      await continueAsGuest();
+      // Navigation is handled by the useEffect when isGuest becomes true
+      // Don't navigate here to avoid race conditions
+    } catch (error: any) {
+      console.error('Continue as guest error:', error);
+      Alert.alert(
+        'Error',
+        error?.message || 'Failed to continue as guest. Please try again.'
       );
     }
   };
@@ -77,8 +112,8 @@ export default function WelcomeScreen() {
     );
   }
 
-  // Don't render welcome if already authenticated
-  if (isAuthenticated) {
+  // Don't render welcome if already authenticated or guest (unless a guest is explicitly viewing sign-in options)
+  if ((isAuthenticated || isGuest) && !shouldSkipRedirect) {
     return (
       <View className="flex-1 bg-background items-center justify-center">
         <ActivityIndicator size="large" color="#000000" />
@@ -152,10 +187,20 @@ export default function WelcomeScreen() {
           icon="logo-google"
           fullWidth
           onPress={handleGoogleSignIn}
+          className="mb-3"
+        />
+
+        {/* Continue as Guest */}
+        <Button
+          title="Continue as Guest"
+          variant="ghost"
+          size="lg"
+          fullWidth
+          onPress={handleContinueAsGuest}
         />
 
         {/* Terms & Privacy */}
-        <Text className="text-[12px] text-foreground-subtle text-center mt-6 px-4">
+        <Text className="text-[12px] text-foreground-subtle text-center mt-4 px-4">
           By signing in, you agree to our{' '}
           <Text 
             className="text-foreground-muted underline"

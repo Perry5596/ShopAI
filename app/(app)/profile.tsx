@@ -1,6 +1,7 @@
-import { View, Text, ScrollView, Alert, Linking } from 'react-native';
+import { View, Text, ScrollView, Alert, Linking, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { IconButton } from '@/components/ui/IconButton';
 import { ProfileCard, SettingsSection, RatingModal } from '@/components/profile';
@@ -10,9 +11,14 @@ import type { SettingsSection as SettingsSectionType } from '@/types';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { profile, signOut, deleteAccount, refreshProfile, user } = useAuth();
+  const { profile, signOut, deleteAccount, refreshProfile, user, isGuest, isAuthenticated } = useAuth();
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRatingModalVisible, setIsRatingModalVisible] = useState(false);
+
+  const handleSignIn = () => {
+    // Pass showSignIn param to prevent auto-redirect back to home
+    router.push('/?showSignIn=true');
+  };
 
   const handleEditProfile = () => {
     router.push('/(app)/edit-profile');
@@ -165,7 +171,7 @@ export default function ProfileScreen() {
   const appVersion = Constants.expoConfig?.version || '1.0.0';
   const currentYear = new Date().getFullYear();
 
-  const settingsSections: SettingsSectionType[] = [
+  const allSettingsSections: SettingsSectionType[] = [
     {
       title: 'Account',
       items: [
@@ -268,6 +274,11 @@ export default function ProfileScreen() {
     },
   ];
 
+  // Filter out Account Actions section for guests
+  const settingsSections = isGuest
+    ? allSettingsSections.filter(section => section.title !== 'Account Actions')
+    : allSettingsSections;
+
   return (
     <View className="flex-1 bg-background-secondary">
       {/* Header */}
@@ -290,14 +301,39 @@ export default function ProfileScreen() {
         className="flex-1 px-5"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
-        {/* Profile Card - Now in its own section */}
-        <ProfileCard
-          name={profile?.name || 'User'}
-          username={username}
-          avatarUrl={profile?.avatarUrl}
-          isPremium={profile?.isPremium || false}
-          onPress={handleEditProfile}
-        />
+        {/* Profile Card or Sign In Button for guests */}
+        {isGuest ? (
+          <TouchableOpacity
+            onPress={handleSignIn}
+            activeOpacity={0.7}
+            className="bg-card rounded-2xl p-4 flex-row items-center"
+            style={{
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.06,
+              shadowRadius: 4,
+              elevation: 2,
+            }}>
+            <View className="w-14 h-14 rounded-full items-center justify-center bg-foreground">
+              <Ionicons name="person-add" size={24} color="#FFFFFF" />
+            </View>
+            <View className="flex-1 ml-4">
+              <Text className="text-[18px] font-inter-semibold text-foreground">Sign In</Text>
+              <Text className="text-[14px] font-inter-medium text-foreground-muted">
+                Create an account to save your scans
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color="#9CA3AF" />
+          </TouchableOpacity>
+        ) : (
+          <ProfileCard
+            name={profile?.name || 'User'}
+            username={username}
+            avatarUrl={profile?.avatarUrl}
+            isPremium={profile?.isPremium || false}
+            onPress={handleEditProfile}
+          />
+        )}
         
         <View className="h-6" />
 

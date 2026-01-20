@@ -1,3 +1,3 @@
 export { useShopStore } from './shopStore';
-export { useSnapStore } from './snapStore';
+export { useSnapStore, RateLimitError, AuthRequiredError } from './snapStore';
 export { useProfileStore } from './profileStore';

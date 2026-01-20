@@ -1,10 +1,18 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { appendAffiliateTag, getRetailerName } from './affiliate-config.ts';
+import {
+  resolveAuth,
+  checkRateLimit,
+  corsHeaders,
+  jsonResponse,
+  errorResponse,
+  type AuthResult,
+} from '../_shared/auth.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// Rate limit configuration
+const RATE_LIMIT_AUTHENTICATED = 14; // 14 scans per week for signed-in users
+const RATE_LIMIT_ANONYMOUS = 3; // 3 scans per week for guests
+const RATE_LIMIT_WINDOW_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
 const RETAILER_DOMAINS = ['amazon.com', 'ebay.com', 'target.com', 'bestbuy.com', 'walmart.com'];
 
@@ -182,13 +190,60 @@ serve(async (req) => {
   }
 
   try {
+    // =========================================================================
+    // Step 1: Authenticate the request
+    // =========================================================================
+    let auth: AuthResult;
+    try {
+      auth = await resolveAuth(req);
+    } catch (error) {
+      console.log('Authentication failed:', error);
+      return errorResponse(
+        'Authentication required',
+        401,
+        {
+          code: 'auth_required',
+          register_url: '/anon/register',
+          message: 'Please sign in or register as a guest to use this feature.',
+        }
+      );
+    }
+
+    // =========================================================================
+    // Step 2: Check rate limit
+    // =========================================================================
+    const rateLimit = auth.type === 'user' ? RATE_LIMIT_AUTHENTICATED : RATE_LIMIT_ANONYMOUS;
+    const rateLimitResult = await checkRateLimit(
+      auth.subject,
+      rateLimit,
+      RATE_LIMIT_WINDOW_SECONDS
+    );
+
+    if (!rateLimitResult.allowed) {
+      console.log('Rate limit exceeded for:', auth.subject);
+      return errorResponse(
+        'Rate limit exceeded',
+        429,
+        {
+          code: 'rate_limited',
+          remaining: rateLimitResult.remaining,
+          reset_at: rateLimitResult.reset_at,
+          limit: rateLimitResult.limit,
+          used: rateLimitResult.used,
+          message: auth.type === 'anon'
+            ? 'You have reached your guest limit. Sign in for more scans.'
+            : 'You have reached your weekly scan limit.',
+        }
+      );
+    }
+
+    // =========================================================================
+    // Step 3: Parse request body
+    // =========================================================================
     const { imageUrl, additionalContext } = await req.json();
 
     if (!imageUrl) {
-      return new Response(
-        JSON.stringify({ error: 'imageUrl is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('imageUrl is required', 400);
     }
 
     // Check required environment variable
@@ -197,29 +252,34 @@ serve(async (req) => {
       throw new Error('SERPAPI_KEY is not configured');
     }
 
-    // Step 1: Query Google Lens via SerpAPI (with optional additional context for fix-issue)
+    // =========================================================================
+    // Step 4: Query Google Lens via SerpAPI
+    // =========================================================================
     let visualMatches: VisualMatch[] = [];
     try {
       visualMatches = await searchGoogleLens(imageUrl, serpApiKey, additionalContext);
     } catch (error) {
       console.error('Google Lens search failed:', error);
-      return new Response(
-        JSON.stringify({
-          title: 'Unknown Product',
-          description: 'Unable to analyze the image. Please try again.',
-          products: [],
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({
+        title: 'Unknown Product',
+        description: 'Unable to analyze the image. Please try again.',
+        products: [],
+      });
     }
 
-    // Step 2: Filter and prioritize matches by retailer domain
+    // =========================================================================
+    // Step 5: Filter and prioritize matches by retailer domain
+    // =========================================================================
     const filteredMatches = filterAndPrioritizeMatches(visualMatches);
 
-    // Step 3: Generate product title from the best match
+    // =========================================================================
+    // Step 6: Generate product title from the best match
+    // =========================================================================
     const productTitle = generateProductTitle(filteredMatches);
 
-    // Step 4: Build the product list
+    // =========================================================================
+    // Step 7: Build the product list
+    // =========================================================================
     const products: SnapResult['products'] = filteredMatches.map((match, index) => ({
       title: match.title,
       price: extractPrice(match),
@@ -231,8 +291,10 @@ serve(async (req) => {
       reviewCount: match.reviews,
     }));
 
-    // Step 5: Build the response
-    const snapResult: SnapResult = {
+    // =========================================================================
+    // Step 8: Build the response with rate limit info
+    // =========================================================================
+    const snapResult: SnapResult & { rateLimit?: typeof rateLimitResult } = {
       title: productTitle,
       description: products.length > 0
         ? `Found ${products.length} product${products.length !== 1 ? 's' : ''} from verified retailers`
@@ -240,15 +302,20 @@ serve(async (req) => {
       products,
     };
 
-    return new Response(
-      JSON.stringify(snapResult),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    // Include rate limit info in response for client to display
+    return jsonResponse({
+      ...snapResult,
+      rateLimit: {
+        remaining: rateLimitResult.remaining,
+        limit: rateLimitResult.limit,
+        reset_at: rateLimitResult.reset_at,
+      },
+    });
   } catch (error) {
     console.error('Error in analyze-product:', error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    return errorResponse(
+      error instanceof Error ? error.message : 'Unknown error',
+      500
     );
   }
 });

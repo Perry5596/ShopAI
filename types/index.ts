@@ -182,3 +182,73 @@ export interface DbShopRateLimit {
   created_at: string;
   updated_at: string;
 }
+
+// ============================================================================
+// Anonymous Authentication Types
+// ============================================================================
+
+// Identity type for API requests
+export type IdentityType = 'user' | 'anon';
+
+// User identity (authenticated)
+export interface UserIdentity {
+  type: 'user';
+  id: string;
+  subject: string; // "user:<uuid>"
+  accessToken: string;
+}
+
+// Anonymous identity (guest)
+export interface AnonIdentity {
+  type: 'anon';
+  id: string;
+  subject: string; // "anon:<uuid>"
+  anonToken: string;
+}
+
+// Union type for any identity
+export type Identity = UserIdentity | AnonIdentity;
+
+// Anonymous token payload (JWT claims)
+export interface AnonTokenPayload {
+  typ: 'anon';
+  sub: string; // anon_id (UUID)
+  iat: number;
+  exp: number;
+}
+
+// ============================================================================
+// Unified Rate Limit Types (for new rate_limits table)
+// ============================================================================
+
+export interface UnifiedRateLimitResult {
+  allowed: boolean;
+  remaining: number;
+  reset_at: string | null;
+  limit: number;
+  used: number;
+}
+
+// Scan response with rate limit info
+export interface ScanResponse {
+  title: string;
+  description?: string;
+  products: Omit<ProductLink, 'id' | 'shopId'>[];
+  rateLimit?: {
+    remaining: number;
+    limit: number;
+    reset_at: string | null;
+  };
+}
+
+// Error response from Edge Functions
+export interface ApiError {
+  error: string;
+  code?: string;
+  message?: string;
+  register_url?: string;
+  remaining?: number;
+  reset_at?: string | null;
+  limit?: number;
+  used?: number;
+}

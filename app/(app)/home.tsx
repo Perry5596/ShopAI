@@ -12,7 +12,7 @@ import type { Shop } from '@/types';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { profile, user, refreshProfile } = useAuth();
+  const { profile, user, refreshProfile, isGuest } = useAuth();
   const { shops, isLoading, isLoadingMore, hasMore, error, fetchShops, fetchMoreShops, updateShop } = useShopStore();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [totalFavorites, setTotalFavorites] = useState(0);
@@ -189,6 +189,7 @@ export default function HomeScreen() {
         <Header
           userName={profile?.name}
           userAvatar={profile?.avatarUrl}
+          isGuest={isGuest}
         />
 
         {/* Stats Section */}

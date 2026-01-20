@@ -4,9 +4,16 @@ import { makeRedirectUri } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { supabase } from '@/utils/supabase';
-import { useProfileStore } from '@/stores';
+import { useProfileStore, useShopStore } from '@/stores';
+import {
+  ensureAnonToken,
+  getAnonToken,
+  getAnonTokenString,
+  clearAnonToken,
+  type AnonTokenData,
+} from '@/utils/anon-auth';
 import type { Session, User } from '@supabase/supabase-js';
-import type { UserProfile } from '@/types';
+import type { UserProfile, Identity } from '@/types';
 
 // Ensure web browser auth sessions complete properly
 WebBrowser.maybeCompleteAuthSession();
@@ -17,11 +24,15 @@ interface AuthContextType {
   profile: UserProfile | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isGuest: boolean;
+  anonId: string | null;
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  continueAsGuest: () => Promise<void>;
+  getIdentity: () => Promise<Identity>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,9 +59,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [anonId, setAnonId] = useState<string | null>(null);
 
   // Use stable zustand selector for profile (avoids re-renders from store object changes)
   const profile = useProfileStore((state) => state.profile);
+
+  // Computed: is user a guest (has anon token but no session)
+  const isGuest = !session && !!anonId;
 
   // Fetch profile from database in background (non-blocking)
   // Uses getState() to avoid dependency on store object which changes every render
@@ -103,6 +118,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           useProfileStore.getState().setProfile(extractUserProfileFromMetadata(session.user));
           // Then fetch full profile from DB in background (don't await)
           fetchProfile(session.user.id, session.user);
+        } else {
+          // No session - check for existing anonymous token
+          try {
+            const anonToken = await getAnonToken();
+            if (anonToken && isMounted) {
+              setAnonId(anonToken.anonId);
+              console.log('Restored anonymous identity:', anonToken.anonId);
+            }
+          } catch (error) {
+            console.log('No existing anonymous token found');
+          }
         }
       } catch (error) {
         console.error('Auth init error:', error);
@@ -291,6 +317,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Continue as guest - registers an anonymous identity
+  const continueAsGuest = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      console.log('Continuing as guest...');
+
+      const tokenData = await ensureAnonToken();
+      setAnonId(tokenData.anonId);
+
+      console.log('Guest mode activated:', tokenData.anonId);
+    } catch (error) {
+      console.error('Failed to continue as guest:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Get current identity for API requests
+  // Returns subject string and type for use in scan requests
+  const getIdentity = useCallback(async (): Promise<Identity> => {
+    // If authenticated, use user ID
+    if (session?.user) {
+      return {
+        type: 'user',
+        id: session.user.id,
+        subject: `user:${session.user.id}`,
+        accessToken: session.access_token,
+      };
+    }
+
+    // If guest, get anonymous token
+    const anonToken = await getAnonTokenString();
+    if (anonToken && anonId) {
+      return {
+        type: 'anon',
+        id: anonId,
+        subject: `anon:${anonId}`,
+        anonToken,
+      };
+    }
+
+    // No identity - need to register
+    throw new Error('No identity available. Please sign in or continue as guest.');
+  }, [session, anonId]);
+
   // Sign out
   const signOut = useCallback(async () => {
     try {
@@ -309,6 +381,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setSession(null);
       useProfileStore.getState().clearProfile();
+      useShopStore.getState().reset();
+      
+      // Note: We don't clear the anonymous token here
+      // User can still use the app as guest after signing out
     } catch (error) {
       console.error('Sign out error:', error);
       throw error;
@@ -386,6 +462,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setSession(null);
       useProfileStore.getState().clearProfile();
+      useShopStore.getState().reset();
     } catch (error) {
       console.error('Delete account error:', error);
       throw error;
@@ -400,11 +477,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     profile,
     isLoading,
     isAuthenticated: !!session,
+    isGuest,
+    anonId,
     signInWithGoogle,
     signInWithApple,
     signOut,
     deleteAccount,
     refreshProfile,
+    continueAsGuest,
+    getIdentity,
   };
 
   return (

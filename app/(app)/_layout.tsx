@@ -4,14 +4,21 @@ import { Stack, router } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function AppLayout() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isGuest, isLoading } = useAuth();
+
+  // User has access if authenticated OR is a guest
+  const hasAccess = isAuthenticated || isGuest;
 
   useEffect(() => {
-    // Redirect to welcome screen if not authenticated
-    if (!isLoading && !isAuthenticated) {
-      router.replace('/');
+    // Redirect to welcome screen if not authenticated and not a guest
+    if (!isLoading && !hasAccess) {
+      // Defer navigation to avoid conflicts with React's render cycle
+      const timeoutId = setTimeout(() => {
+        router.replace('/');
+      }, 0);
+      return () => clearTimeout(timeoutId);
     }
-  }, [isAuthenticated, isLoading]);
+  }, [hasAccess, isLoading]);
 
   // Show loading while checking auth state
   if (isLoading) {
@@ -22,8 +29,8 @@ export default function AppLayout() {
     );
   }
 
-  // Don't render app routes if not authenticated
-  if (!isAuthenticated) {
+  // Don't render app routes if no access
+  if (!hasAccess) {
     return (
       <View className="flex-1 bg-background items-center justify-center">
         <ActivityIndicator size="large" color="#000000" />
@@ -47,6 +54,7 @@ export default function AppLayout() {
           animation: 'slide_from_bottom',
         }}
       />
+      <Stack.Screen name="guest-results" />
       <Stack.Screen name="shop/[id]" />
       <Stack.Screen name="fix-issue/[id]" />
     </Stack>

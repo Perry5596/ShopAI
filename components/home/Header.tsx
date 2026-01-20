@@ -7,9 +7,13 @@ import * as Haptics from 'expo-haptics';
 interface HeaderProps {
   userName?: string;
   userAvatar?: string;
+  isGuest?: boolean;
 }
 
-export function Header({ userName, userAvatar }: HeaderProps) {
+export function Header({ userName, userAvatar, isGuest }: HeaderProps) {
+  // For guests, show "U" for "User" instead of "?" 
+  const displayName = isGuest ? 'User' : userName;
+
   return (
     <View className="flex-row items-center justify-between px-5 py-3 mt-4">
       {/* Logo and App Name */}
@@ -25,7 +29,7 @@ export function Header({ userName, userAvatar }: HeaderProps) {
           router.push('/(app)/profile');
         }}
         activeOpacity={0.7}>
-        <Avatar imageUrl={userAvatar} name={userName} size="md" />
+        <Avatar imageUrl={isGuest ? undefined : userAvatar} name={displayName} size="md" />
       </TouchableOpacity>
     </View>
   );

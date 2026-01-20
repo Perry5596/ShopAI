@@ -8,8 +8,8 @@ import { IconButton } from '@/components/ui/IconButton';
 import { Button } from '@/components/ui/Button';
 import { CameraView, CameraControls, ZoomControls } from '@/components/snap';
 import { useSnapStore } from '@/stores';
+import { RateLimitError } from '@/utils/mock-ai-service';
 import { useAuth } from '@/contexts/AuthContext';
-import { rateLimitService } from '@/utils/supabase-service';
 
 // Viewfinder constants (matching CameraView)
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT  } = Dimensions.get('window');
@@ -36,7 +36,7 @@ export default function SnapScreen() {
   const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
 
   const { captureAndProcess } = useSnapStore();
-  const { user, profile } = useAuth();
+  const { user, profile, isAuthenticated, isGuest, getIdentity } = useAuth();
 
   // Handler for pinch-to-zoom
   const handlePinchZoom = useCallback((newZoom: number) => {
@@ -89,44 +89,77 @@ export default function SnapScreen() {
   };
 
   const processImage = async (uri: string) => {
-    if (!user?.id) {
-      Alert.alert('Error', 'You must be logged in to capture images.');
-      return;
-    }
-
     try {
-      // Check rate limit before processing
-      const rateLimit = await rateLimitService.checkRateLimit(user.id);
-      
-      if (!rateLimit.canShop) {
-        const timeRemaining = rateLimit.resetsAt 
-          ? formatTimeRemaining(rateLimit.resetsAt) 
-          : 'next week';
-        
+      // Get current identity (user or anonymous)
+      let identity;
+      try {
+        identity = await getIdentity();
+      } catch (identityError) {
+        // No identity available - should not happen if user got to snap screen
         Alert.alert(
-          'Weekly Limit Reached',
-          `You've used all ${rateLimit.maxShops} shops for this week. Your limit will reset in ${timeRemaining}.`,
-          [{ text: 'OK', onPress: () => {
-            setIsCapturing(false);
-            setCapturedImageUri(null);
-          }}]
+          'Sign In Required',
+          'Please sign in or continue as guest to scan products.',
+          [{ text: 'OK', onPress: () => router.replace('/') }]
         );
+        setIsCapturing(false);
+        setCapturedImageUri(null);
         return;
       }
 
-      // Start capture and process - this creates the shop in processing state
-      // and returns immediately, with background processing continuing
-      await captureAndProcess(uri, user.id, profile);
+      // Start capture and process
+      // For authenticated users, this creates a shop in the database
+      // For guests, the rate limit is checked server-side
+      await captureAndProcess(uri, identity, profile);
       
-      // Navigate back to home - the shop will appear in processing state
-      router.back();
-    } catch (error) {
-      console.error('Failed to process image:', error);
-      Alert.alert(
-        'Error',
-        'Failed to process image. Please try again.',
-        [{ text: 'OK' }]
-      );
+      // Navigate based on user type
+      if (isGuest) {
+        // Guests go to the results screen (results stored locally in snapStore)
+        router.replace('/(app)/guest-results');
+      } else {
+        // Authenticated users go back to home (shop is in database)
+        router.back();
+      }
+    } catch (err: unknown) {
+      console.error('Failed to process image:', err);
+
+      // Handle rate limit error with specific messaging
+      if (err instanceof RateLimitError) {
+        const rateLimitErr = err as RateLimitError;
+        const timeRemaining = rateLimitErr.resetAt 
+          ? formatTimeRemaining(rateLimitErr.resetAt) 
+          : 'next week';
+        
+        const message = rateLimitErr.isGuest
+          ? `You've used all ${rateLimitErr.limit} free scans. Sign in for more scans, or your limit will reset in ${timeRemaining}.`
+          : `You've used all ${rateLimitErr.limit} scans for this week. Your limit will reset in ${timeRemaining}.`;
+        
+        // Reset state first
+        setIsCapturing(false);
+        setCapturedImageUri(null);
+        
+        const alertButtons = [
+          { text: 'OK', onPress: () => {
+            // Navigate back to home (use back() to avoid double navigation)
+            router.back();
+          }},
+        ];
+        
+        if (rateLimitErr.isGuest) {
+          alertButtons.push({ text: 'Sign In', onPress: () => {
+            // First go back to home, then navigate to sign-in after a brief delay
+            router.back();
+            setTimeout(() => {
+              router.push('/?showSignIn=true');
+            }, 100);
+          }});
+        }
+        
+        Alert.alert('Scan Limit Reached', message, alertButtons);
+        return;
+      }
+
+      const errorMessage = err instanceof Error ? err.message : 'Failed to process image. Please try again.';
+      Alert.alert('Error', errorMessage, [{ text: 'OK' }]);
       setIsCapturing(false);
       setCapturedImageUri(null);
     }

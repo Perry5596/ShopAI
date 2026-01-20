@@ -1,8 +1,15 @@
 import { create } from 'zustand';
 import { shopService, storageService, profileService } from '@/utils/supabase-service';
-import { analyzeImage } from '@/utils/mock-ai-service';
+import { analyzeImage, RateLimitError, AuthRequiredError } from '@/utils/mock-ai-service';
 import { useShopStore } from './shopStore';
-import type { Shop, UserProfile } from '@/types';
+import { getAnonTokenString } from '@/utils/anon-auth';
+import type { Shop, UserProfile, Identity, ScanResponse } from '@/types';
+
+interface GuestScanResult {
+  imageUri: string;
+  result: ScanResponse;
+  scannedAt: string;
+}
 
 interface SnapState {
   isCapturing: boolean;
@@ -10,9 +17,25 @@ interface SnapState {
   isProcessing: boolean;
   currentImageUri: string | null;
   error: string | null;
+  
+  // Guest scan results (not persisted to database)
+  guestScanResult: GuestScanResult | null;
+  
+  // Rate limit info from last scan
+  lastRateLimitInfo: {
+    remaining: number;
+    limit: number;
+    resetAt: string | null;
+  } | null;
 
   // Actions
-  captureAndProcess: (uri: string, userId: string, userProfile?: UserProfile | null) => Promise<string>;
+  captureAndProcess: (
+    uri: string,
+    identity: Identity,
+    userProfile?: UserProfile | null
+  ) => Promise<string | null>;
+  captureAndProcessGuest: (uri: string, identity: Identity) => Promise<ScanResponse>;
+  clearGuestResult: () => void;
   reset: () => void;
 }
 
@@ -22,15 +45,33 @@ export const useSnapStore = create<SnapState>((set, get) => ({
   isProcessing: false,
   currentImageUri: null,
   error: null,
+  guestScanResult: null,
+  lastRateLimitInfo: null,
 
-  captureAndProcess: async (uri: string, userId: string, userProfile?: UserProfile | null): Promise<string> => {
+  /**
+   * Capture and process image for authenticated users
+   * Creates a shop in the database and processes in background
+   */
+  captureAndProcess: async (
+    uri: string,
+    identity: Identity,
+    userProfile?: UserProfile | null
+  ): Promise<string | null> => {
+    // For guests, use the guest flow instead
+    if (identity.type === 'anon') {
+      await get().captureAndProcessGuest(uri, identity);
+      return null; // No shop ID for guests
+    }
+
     const shopStore = useShopStore.getState();
+    const userId = identity.id;
 
     set({
       isCapturing: true,
       isUploading: true,
       currentImageUri: uri,
       error: null,
+      guestScanResult: null,
     });
 
     let shopId: string;
@@ -75,7 +116,7 @@ export const useSnapStore = create<SnapState>((set, get) => ({
       set({ isUploading: false, isProcessing: true });
 
       // Step 5: Process image in background (don't await - let it run async)
-      processImageInBackground(shopId, userId, imageUrl);
+      processImageInBackground(shopId, userId, imageUrl, identity);
 
       set({ isCapturing: false, isProcessing: false });
 
@@ -92,6 +133,95 @@ export const useSnapStore = create<SnapState>((set, get) => ({
     }
   },
 
+  /**
+   * Capture and process image for guest users
+   * Does NOT persist to database - just analyzes and returns results
+   */
+  captureAndProcessGuest: async (uri: string, identity: Identity): Promise<ScanResponse> => {
+    set({
+      isCapturing: true,
+      isUploading: true,
+      isProcessing: false,
+      currentImageUri: uri,
+      error: null,
+      guestScanResult: null,
+    });
+
+    try {
+      let imageUrl = uri;
+      
+      // If it's a local file, upload via Edge Function first
+      if (!uri.startsWith('http://') && !uri.startsWith('https://')) {
+        // Get the anonymous token
+        const anonToken = await getAnonTokenString();
+        
+        if (!anonToken) {
+          throw new Error('No anonymous token available. Please restart the app.');
+        }
+
+        // Upload the image via the Edge Function
+        imageUrl = await storageService.uploadImageViaEdge(uri, anonToken);
+      }
+
+      set({ isUploading: false, isProcessing: true });
+
+      // Call the analyze endpoint with the public URL
+      const result = await analyzeImage(imageUrl, identity);
+
+      // Store rate limit info
+      if (result.rateLimit) {
+        set({
+          lastRateLimitInfo: {
+            remaining: result.rateLimit.remaining,
+            limit: result.rateLimit.limit,
+            resetAt: result.rateLimit.reset_at,
+          },
+        });
+      }
+
+      // Store guest result (use original local URI for display)
+      const guestResult: GuestScanResult = {
+        imageUri: uri,
+        result,
+        scannedAt: new Date().toISOString(),
+      };
+
+      set({
+        isCapturing: false,
+        isUploading: false,
+        isProcessing: false,
+        guestScanResult: guestResult,
+      });
+
+      return result;
+    } catch (error) {
+      console.error('Guest scan failed:', error);
+      
+      // Handle rate limit error specially
+      if (error instanceof RateLimitError) {
+        set({
+          lastRateLimitInfo: {
+            remaining: error.remaining,
+            limit: error.limit,
+            resetAt: error.resetAt,
+          },
+        });
+      }
+
+      set({
+        isCapturing: false,
+        isUploading: false,
+        isProcessing: false,
+        error: error instanceof Error ? error.message : 'Failed to process image',
+      });
+      throw error;
+    }
+  },
+
+  clearGuestResult: () => {
+    set({ guestScanResult: null });
+  },
+
   reset: () => {
     set({
       isCapturing: false,
@@ -99,28 +229,61 @@ export const useSnapStore = create<SnapState>((set, get) => ({
       isProcessing: false,
       currentImageUri: null,
       error: null,
+      guestScanResult: null,
     });
   },
 }));
 
 /**
- * Process image in background using mock AI service.
+ * Process image in background using AI service.
  * This runs asynchronously after the user has navigated back to home.
  */
-async function processImageInBackground(shopId: string, userId: string, imageUrl: string): Promise<void> {
+async function processImageInBackground(
+  shopId: string,
+  userId: string,
+  imageUrl: string,
+  identity: Identity
+): Promise<void> {
   const shopStore = useShopStore.getState();
+  const snapStore = useSnapStore.getState();
 
   try {
-    // Call the mock AI service (will be replaced with real AI later)
-    const result = await analyzeImage(imageUrl);
+    // Call the AI service
+    const result = await analyzeImage(imageUrl, identity);
+
+    // Store rate limit info
+    if (result.rateLimit) {
+      useSnapStore.setState({
+        lastRateLimitInfo: {
+          remaining: result.rateLimit.remaining,
+          limit: result.rateLimit.limit,
+          resetAt: result.rateLimit.reset_at,
+        },
+      });
+    }
 
     // Complete the shop processing with the results (also increments user stats)
     await shopStore.completeShopProcessing(shopId, userId, result);
   } catch (error) {
     console.error('Background image processing failed:', error);
+
+    // Handle rate limit error
+    if (error instanceof RateLimitError) {
+      useSnapStore.setState({
+        lastRateLimitInfo: {
+          remaining: error.remaining,
+          limit: error.limit,
+          resetAt: error.resetAt,
+        },
+      });
+    }
+
     await shopStore.failShopProcessing(
       shopId,
       error instanceof Error ? error.message : 'Failed to analyze image'
     );
   }
 }
+
+// Re-export error types for convenience
+export { RateLimitError, AuthRequiredError };

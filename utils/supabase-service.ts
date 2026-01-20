@@ -467,49 +467,71 @@ export const productService = {
 
 export const rateLimitService = {
   /**
-   * Check if user can create a new shop based on rate limits
-   * @param userId - User ID to check rate limit for
-   * @returns Rate limit status including canShop, shopsUsed, shopsRemaining, etc.
+   * Check rate limit status for display purposes (read-only, doesn't consume quota)
+   * Uses the new unified rate_limits table with subject-based rate limiting.
+   * Note: Rate limiting is now enforced server-side in the Edge Function.
+   *
+   * @param subject - Rate limit subject (e.g., "user:<uuid>" or "anon:<uuid>")
+   * @param limit - Maximum requests allowed in window (default: 14)
+   * @returns Rate limit status
    */
-  async checkRateLimit(userId: string): Promise<RateLimitStatus> {
-    const { data, error } = await supabase.rpc('check_shop_rate_limit', {
-      p_user_id: userId,
+  async checkRateLimitStatus(
+    subject: string,
+    limit: number = 14
+  ): Promise<RateLimitStatus> {
+    const { data, error } = await supabase.rpc('rate_limit_check', {
+      p_subject: subject,
+      p_limit: limit,
+      p_window_seconds: 7 * 24 * 60 * 60, // 7 days
     });
 
     if (error) {
       console.error('Failed to check rate limit:', error);
-      // On error, default to allowing the shop (fail open for better UX)
-      // The server will enforce the limit anyway
+      // Fail open for better UX - server will enforce anyway
       return {
         canShop: true,
         shopsUsed: 0,
-        shopsRemaining: 14,
-        maxShops: 14,
+        shopsRemaining: limit,
+        maxShops: limit,
         windowStart: null,
         resetsAt: null,
       };
     }
 
-    return data as RateLimitStatus;
+    // Map the new response format to the legacy interface
+    return {
+      canShop: data.allowed,
+      shopsUsed: data.used,
+      shopsRemaining: data.remaining,
+      maxShops: data.limit,
+      windowStart: null, // Not returned by new function
+      resetsAt: data.reset_at,
+    };
   },
 
   /**
-   * Increment shop count after successful shop completion
-   * Should only be called after a shop has been successfully processed
-   * @param userId - User ID to increment rate limit for
-   * @returns Updated rate limit info
+   * @deprecated Use checkRateLimitStatus with subject instead
+   * Legacy function for backward compatibility with user ID
+   */
+  async checkRateLimit(userId: string): Promise<RateLimitStatus> {
+    return this.checkRateLimitStatus(`user:${userId}`);
+  },
+
+  /**
+   * @deprecated Rate limit increments are now handled server-side
+   * This function is kept for backward compatibility but does nothing.
    */
   async incrementRateLimit(userId: string): Promise<RateLimitIncrementResult> {
-    const { data, error } = await supabase.rpc('increment_shop_rate_limit', {
-      p_user_id: userId,
-    });
-
-    if (error) {
-      console.error('Failed to increment rate limit:', error);
-      throw error;
-    }
-
-    return data as RateLimitIncrementResult;
+    console.warn('incrementRateLimit is deprecated - rate limiting is now handled server-side');
+    // Return a mock success response
+    return {
+      success: true,
+      shopsUsed: 0,
+      shopsRemaining: 14,
+      maxShops: 14,
+      windowStart: new Date().toISOString(),
+      resetsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    };
   },
 };
 
@@ -597,5 +619,61 @@ export const storageService = {
     } = supabase.storage.from('shop-images').getPublicUrl(filePath);
 
     return publicUrl;
+  },
+
+  /**
+   * Upload an image via the Edge Function (works for both users and guests).
+   * This is used when the client can't upload directly to storage (e.g., guests).
+   */
+  async uploadImageViaEdge(
+    uri: string,
+    anonToken?: string
+  ): Promise<string> {
+    // Create a File instance from the URI (expo-file-system)
+    const file = new File(uri);
+
+    // Read file as ArrayBuffer and convert to base64
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    
+    // Convert to base64
+    let binary = '';
+    for (let i = 0; i < uint8Array.length; i++) {
+      binary += String.fromCharCode(uint8Array[i]);
+    }
+    const base64Data = btoa(binary);
+
+    // Determine content type
+    const fileExt = file.extension?.replace('.', '') || 'jpg';
+    const contentType = fileExt === 'png' ? 'image/png' : 'image/jpeg';
+
+    // Build headers
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    
+    if (anonToken) {
+      headers['X-Anon-Token'] = anonToken;
+    }
+
+    // Call the Edge Function
+    const { data, error } = await supabase.functions.invoke('upload-image', {
+      headers,
+      body: {
+        imageData: base64Data,
+        contentType,
+      },
+    });
+
+    if (error) {
+      console.error('Upload via edge error:', error);
+      throw new Error(error.message || 'Failed to upload image');
+    }
+
+    if (!data?.imageUrl) {
+      throw new Error('No image URL returned from upload');
+    }
+
+    return data.imageUrl;
   },
 };
