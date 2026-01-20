@@ -11,7 +11,7 @@ import { CircularProgress } from '@/components/ui/CircularProgress';
 import { CenteredModal, FadeModal } from '@/components/ui/Modal';
 import { useShopStore } from '@/stores';
 import { useAuth } from '@/contexts/AuthContext';
-import { shopService } from '@/utils/supabase-service';
+import { shopService, analyticsService } from '@/utils/supabase-service';
 import type { Shop, ProductLink } from '@/types';
 
 export default function ShopDetailScreen() {
@@ -246,6 +246,13 @@ export default function ShopDetailScreen() {
     router.back();
   };
 
+  const handleLinkClick = () => {
+    // Track link click for authenticated users only
+    if (user?.id) {
+      analyticsService.trackLinkClick(user.id);
+    }
+  };
+
   // Loading shop from Supabase
   if (!shop && isLoadingShop) {
     return (
@@ -391,6 +398,7 @@ export default function ShopDetailScreen() {
           links={shop.products}
           recommendation={shop.recommendation}
           onShareProduct={handleShareProduct}
+          onLinkClick={handleLinkClick}
         />
       </ScrollView>
 

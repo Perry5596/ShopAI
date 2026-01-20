@@ -536,6 +536,59 @@ export const rateLimitService = {
 };
 
 // ============================================================================
+// Analytics Service
+// ============================================================================
+
+export const analyticsService = {
+  /**
+   * Track a link click event for the authenticated user.
+   * This increments the link_click_count in the user_analytics table.
+   * 
+   * @param userId - The authenticated user's ID
+   * @returns Promise that resolves when tracking is complete
+   */
+  async trackLinkClick(userId: string): Promise<void> {
+    try {
+      const { error } = await supabase.rpc('increment_analytics', {
+        p_user_id: userId,
+        p_event_type: 'link_click',
+      });
+
+      if (error) {
+        // Log but don't throw - analytics should not break the user experience
+        console.error('Failed to track link click:', error);
+      }
+    } catch (err) {
+      // Silently fail - analytics tracking should never break the app
+      console.error('Error tracking link click:', err);
+    }
+  },
+
+  /**
+   * Track a scan event for the authenticated user.
+   * Note: Scans are typically tracked server-side in the analyze-product function,
+   * but this can be used for client-side tracking if needed.
+   * 
+   * @param userId - The authenticated user's ID
+   * @returns Promise that resolves when tracking is complete
+   */
+  async trackScan(userId: string): Promise<void> {
+    try {
+      const { error } = await supabase.rpc('increment_analytics', {
+        p_user_id: userId,
+        p_event_type: 'scan',
+      });
+
+      if (error) {
+        console.error('Failed to track scan:', error);
+      }
+    } catch (err) {
+      console.error('Error tracking scan:', err);
+    }
+  },
+};
+
+// ============================================================================
 // Storage Service
 // ============================================================================
 

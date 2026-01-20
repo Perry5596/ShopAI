@@ -4,8 +4,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome5, FontAwesome6 } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSnapStore } from '@/stores';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { analyticsService } from '@/utils/supabase-service';
 import type { ProductLink } from '@/types';
 
 /**
@@ -16,6 +18,7 @@ import type { ProductLink } from '@/types';
  */
 export default function GuestResultsScreen() {
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const { guestScanResult, clearGuestResult, lastRateLimitInfo } = useSnapStore();
 
   // If no guest result, go back
@@ -70,6 +73,12 @@ export default function GuestResultsScreen() {
 
   const handleProductPress = async (product: { affiliateUrl: string }) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
+    // Track link click for authenticated users
+    if (user?.id) {
+      analyticsService.trackLinkClick(user.id);
+    }
+    
     try {
       const canOpen = await Linking.canOpenURL(product.affiliateUrl);
       if (canOpen) {

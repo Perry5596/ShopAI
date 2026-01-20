@@ -1,4 +1,5 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
 import { appendAffiliateTag, getRetailerName } from './affiliate-config.ts';
 import {
   resolveAuth,
@@ -294,7 +295,28 @@ serve(async (req) => {
     }));
 
     // =========================================================================
-    // Step 8: Build the response with rate limit info
+    // Step 8: Track analytics for authenticated users
+    // =========================================================================
+    if (auth.type === 'user') {
+      try {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL');
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+        
+        if (supabaseUrl && supabaseServiceKey) {
+          const supabase = createClient(supabaseUrl, supabaseServiceKey);
+          await supabase.rpc('increment_analytics', {
+            p_user_id: auth.id,
+            p_event_type: 'scan',
+          });
+        }
+      } catch (analyticsError) {
+        // Log but don't fail the request if analytics tracking fails
+        console.error('Failed to track scan analytics:', analyticsError);
+      }
+    }
+
+    // =========================================================================
+    // Step 9: Build the response with rate limit info
     // =========================================================================
     const snapResult: SnapResult & { rateLimit?: typeof rateLimitResult } = {
       title: productTitle,
