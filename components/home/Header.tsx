@@ -7,11 +7,11 @@ interface HeaderProps {
 
 export function Header({ streak = 0 }: HeaderProps) {
   return (
-    <View className="flex-row items-center justify-between px-5 py-3 mt-4">
+    <View className="flex-row items-center justify-between px-5 py-5 mt-4">
       {/* Logo and App Name */}
       <View className="flex-row items-center">
-        <Ionicons name="bag" size={32} color="#000000" />
-        <Text className="text-[26px] font-inter-semibold text-foreground ml-2">Shop AI</Text>
+        {/* <Ionicons name="bag" size={40} color="#000000" /> */}
+        <Text className="text-[32px] font-inter-semibold text-foreground ml-2">Shop AI</Text>
       </View>
 
       {/* Daily Streak Indicator */}

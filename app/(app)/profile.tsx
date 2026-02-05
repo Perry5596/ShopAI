@@ -463,8 +463,8 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingTop: insets.top, paddingBottom: 140 }}>
         {/* Header - same styling as home page, scrolls with content */}
-        <View className="flex-row items-center justify-between px-5 py-3 mt-4">
-          <Text className="text-[26px] font-inter-bold text-foreground">Profile</Text>
+        <View className="flex-row items-center justify-between px-5 py-5 mt-4">
+          <Text className="text-[32px] font-inter-bold text-foreground">Profile</Text>
         </View>
 
         <View className="px-5">

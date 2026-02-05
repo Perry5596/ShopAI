@@ -25,8 +25,8 @@ export default function AnalyticsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingTop: insets.top, paddingBottom: 140 }}>
         {/* Header - same styling as home page */}
-        <View className="flex-row items-center justify-between px-5 py-3 mt-4">
-          <Text className="text-[26px] font-inter-bold text-foreground">
+        <View className="flex-row items-center justify-between px-5 py-5 mt-4">
+          <Text className="text-[32px] font-inter-bold text-foreground">
             Analytics
           </Text>
         </View>
