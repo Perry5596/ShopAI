@@ -1,6 +1,6 @@
 import '../global.css';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -55,34 +55,46 @@ export default function RootLayout() {
     Inter_700Bold,
   });
 
-  // Add timeout to ensure splash screen hides even if fonts fail
+  // Hide splash screen when fonts are loaded or if there's an error
+  // This useEffect properly reacts to fontsLoaded/fontError state changes
+  useEffect(() => {
+    async function hideSplash() {
+      if (fontsLoaded || fontError) {
+        try {
+          console.log('[SplashScreen] Hiding splash - fontsLoaded:', fontsLoaded, 'fontError:', fontError);
+          await SplashScreen.hideAsync();
+        } catch (e) {
+          // Ignore errors - splash screen may already be hidden
+          console.log('[SplashScreen] Error hiding splash (may already be hidden):', e);
+        }
+      }
+    }
+    hideSplash();
+  }, [fontsLoaded, fontError]);
+
+  // Fallback timeout in case fonts never load (network issues, etc.)
   useEffect(() => {
     const timeout = setTimeout(async () => {
       try {
+        console.log('[SplashScreen] Fallback timeout triggered after 5 seconds');
         await SplashScreen.hideAsync();
       } catch (e) {
         // Ignore errors - splash screen may already be hidden
       }
-    }, 3000); // 3 second timeout
+    }, 5000); // 5 second fallback timeout
 
     return () => clearTimeout(timeout);
   }, []);
 
-  const onLayoutRootView = useCallback(async () => {
-    // Hide splash screen once fonts are loaded (or if there was an error)
-    if (fontsLoaded || fontError) {
-      try {
-        await SplashScreen.hideAsync();
-      } catch (e) {
-        // Ignore errors - splash screen may already be hidden
-      }
-    }
+  // Log font loading status for debugging
+  useEffect(() => {
+    console.log('[Fonts] Loading state - fontsLoaded:', fontsLoaded, 'fontError:', fontError);
   }, [fontsLoaded, fontError]);
 
   // Don't block rendering - proceed even if fonts fail
   // The app will use system fonts as fallback
   return (
-    <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
         <ActivityTracker />
         <StatusBar style="dark" />
