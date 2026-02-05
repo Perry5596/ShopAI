@@ -226,8 +226,8 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Recent Shops */}
-        {!isLoading && (
+        {/* Recent Shops - show cached shops even during background refresh */}
+        {(shops.length > 0 || !isLoading) && (
           <View>
             <RecentShops 
               shops={shops} 

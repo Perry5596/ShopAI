@@ -67,7 +67,14 @@ export const useShopStore = create<ShopState>((set, get) => ({
   error: null,
 
   fetchShops: async (userId: string) => {
-    set({ isLoading: true, error: null });
+    const { shops: existingShops } = get();
+    // Only show loading state if we don't have any cached shops
+    // This prevents the flash when navigating back with cached data
+    if (existingShops.length === 0) {
+      set({ isLoading: true, error: null });
+    } else {
+      set({ error: null });
+    }
     try {
       const { shops, hasMore } = await shopService.fetchUserShops(userId, PAGE_SIZE, 0);
       set({ shops, hasMore, isLoading: false });
