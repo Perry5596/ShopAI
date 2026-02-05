@@ -94,6 +94,36 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleTikTok = async () => {
+    const url = 'https://www.tiktok.com/@shopai.app';
+    const canOpen = await Linking.canOpenURL(url);
+    if (canOpen) {
+      await Linking.openURL(url);
+    } else {
+      Alert.alert('Error', 'Unable to open TikTok. Please make sure the TikTok app is installed.');
+    }
+  };
+
+  const handleInstagram = async () => {
+    const url = 'https://www.instagram.com/shopai.app';
+    const canOpen = await Linking.canOpenURL(url);
+    if (canOpen) {
+      await Linking.openURL(url);
+    } else {
+      Alert.alert('Error', 'Unable to open Instagram. Please make sure the Instagram app is installed.');
+    }
+  };
+
+  const handleFacebook = async () => {
+    const url = 'https://www.facebook.com/profile.php?id=61587340048121';
+    const canOpen = await Linking.canOpenURL(url);
+    if (canOpen) {
+      await Linking.openURL(url);
+    } else {
+      Alert.alert('Error', 'Unable to open Facebook. Please make sure the Facebook app is installed.');
+    }
+  };
+
   const handleRateUs = () => {
     setIsRatingModalVisible(true);
   };
@@ -275,13 +305,19 @@ export default function ProfileScreen() {
           id: 'instagram',
           icon: 'logo-instagram',
           title: 'Instagram',
-          onPress: () => Alert.alert('Coming Soon', 'Instagram integration will be available soon!'),
+          onPress: handleInstagram,
         },
         {
           id: 'tiktok',
           icon: 'logo-tiktok',
           title: 'TikTok',
-          onPress: () => Alert.alert('Coming Soon', 'TikTok integration will be available soon!'),
+          onPress: handleTikTok,
+        },
+        {
+          id: 'facebook',
+          icon: 'logo-facebook',
+          title: 'Facebook',
+          onPress: handleFacebook,
         },
       ],
     },
