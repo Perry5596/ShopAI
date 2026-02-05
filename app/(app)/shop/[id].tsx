@@ -1,10 +1,18 @@
-import { View, Text, ScrollView, TouchableOpacity, Alert, Share, ActivityIndicator, TextInput } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Share, ActivityIndicator, TextInput, Image, ImageSourcePropType } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { FontAwesome5, FontAwesome6 } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+
+// Affiliate logo imports
+const affiliateLogos: Record<string, ImageSourcePropType> = {
+  amazon: require('@/assets/affiliate_logos/Amazon.com, Inc..png'),
+  ebay: require('@/assets/affiliate_logos/eBay Inc..png'),
+  target: require('@/assets/affiliate_logos/Target Corporation.png'),
+  bestbuy: require('@/assets/affiliate_logos/Best Buy Co., Inc..png'),
+  walmart: require('@/assets/affiliate_logos/Walmart Inc..png'),
+};
 import { ShopHeader, ProductImage, ProductLinks, ActionButtons } from '@/components/shop';
 import { Badge } from '@/components/ui/Badge';
 import { CircularProgress } from '@/components/ui/CircularProgress';
@@ -130,37 +138,53 @@ export default function ShopDetailScreen() {
   };
 
   /**
-   * Get retailer-specific icon for share sheet
+   * Get affiliate logo based on source name
    */
-  const getRetailerIcon = (source: string): React.ReactNode => {
+  const getAffiliateLogo = (source: string): ImageSourcePropType | null => {
     const sourceLower = source.toLowerCase();
     
-    if (sourceLower.includes('amazon')) {
-      return <FontAwesome5 name="amazon" size={20} color="#FF9900" />;
+    if (sourceLower.includes('amazon')) return affiliateLogos.amazon;
+    if (sourceLower.includes('ebay')) return affiliateLogos.ebay;
+    if (sourceLower.includes('target')) return affiliateLogos.target;
+    if (sourceLower.includes('best buy') || sourceLower.includes('bestbuy')) return affiliateLogos.bestbuy;
+    if (sourceLower.includes('walmart')) return affiliateLogos.walmart;
+    
+    return null;
+  };
+
+  /**
+   * Get retailer-specific icon for share sheet - returns logo or brand name as fallback
+   */
+  const getRetailerIcon = (source: string): React.ReactNode => {
+    const logo = getAffiliateLogo(source);
+    
+    if (logo) {
+      return (
+        <Image
+          source={logo}
+          style={{ width: 36, height: 36 }}
+          resizeMode="contain"
+        />
+      );
     }
-    if (sourceLower.includes('ebay')) {
-      return <Text className="text-[12px] font-bold text-white">eBay</Text>;
-    }
-    if (sourceLower.includes('target')) {
-      return <FontAwesome6 name="bullseye" size={18} color="#CC0000" />;
-    }
-    if (sourceLower.includes('best buy') || sourceLower.includes('bestbuy')) {
-      return <Text className="text-[10px] font-bold text-[#FFE000]">BBY</Text>;
-    }
-    if (sourceLower.includes('walmart')) {
-      return <FontAwesome6 name="star" size={16} color="#FFC220" />;
-    }
-    return <Ionicons name="bag-outline" size={20} color="#9CA3AF" />;
+    
+    // Fallback: show brand name for unknown retailers
+    return (
+      <Text className="text-[10px] text-foreground-muted font-medium text-center" numberOfLines={2}>
+        {source}
+      </Text>
+    );
   };
 
   const getRetailerBgColor = (source: string): string => {
+    // Use white background for all affiliate logos
     const sourceLower = source.toLowerCase();
     
-    if (sourceLower.includes('amazon')) return 'bg-[#232F3E]';
-    if (sourceLower.includes('ebay')) return 'bg-[#E53238]';
-    if (sourceLower.includes('target')) return 'bg-white border border-gray-200';
-    if (sourceLower.includes('best buy') || sourceLower.includes('bestbuy')) return 'bg-[#0046BE]';
-    if (sourceLower.includes('walmart')) return 'bg-[#0071DC]';
+    if (sourceLower.includes('amazon')) return 'bg-white';
+    if (sourceLower.includes('ebay')) return 'bg-white';
+    if (sourceLower.includes('target')) return 'bg-white';
+    if (sourceLower.includes('best buy') || sourceLower.includes('bestbuy')) return 'bg-white';
+    if (sourceLower.includes('walmart')) return 'bg-white';
     return 'bg-background-secondary';
   };
 
@@ -469,9 +493,12 @@ export default function ShopDetailScreen() {
                   <Text className="text-[16px] font-inter-medium text-foreground mb-1" numberOfLines={2}>
                     {product.title}
                   </Text>
-                  <Text className="text-[14px] text-foreground-muted mb-1">
-                    {product.source}
-                  </Text>
+                  {/* Only show source name if no affiliate logo */}
+                  {!getAffiliateLogo(product.source) && (
+                    <Text className="text-[14px] text-foreground-muted mb-1">
+                      {product.source}
+                    </Text>
+                  )}
                   {product.price && (
                     <Text className="text-[14px] font-inter-semibold text-foreground">
                       {product.price}

@@ -1,9 +1,17 @@
-import { View, Text, Image, TouchableOpacity, Linking, Dimensions, Alert } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Linking, Dimensions, Alert, ImageSourcePropType } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { FontAwesome5, FontAwesome6 } from '@expo/vector-icons';
 import { Badge } from '../ui/Badge';
 import type { ProductLink } from '@/types';
 import * as Haptics from 'expo-haptics';
+
+// Affiliate logo imports
+const affiliateLogos: Record<string, ImageSourcePropType> = {
+  amazon: require('@/assets/affiliate_logos/Amazon.com, Inc..png'),
+  ebay: require('@/assets/affiliate_logos/eBay Inc..png'),
+  target: require('@/assets/affiliate_logos/Target Corporation.png'),
+  bestbuy: require('@/assets/affiliate_logos/Best Buy Co., Inc..png'),
+  walmart: require('@/assets/affiliate_logos/Walmart Inc..png'),
+};
 
 interface ProductLinksProps {
   links: ProductLink[];
@@ -16,57 +24,80 @@ const { width: screenWidth } = Dimensions.get('window');
 const CARD_WIDTH = (screenWidth - 48) / 2; // 2 columns with padding
 
 /**
- * Get retailer-specific icon and color based on source name
+ * Get affiliate logo based on source name
+ */
+function getAffiliateLogo(source: string): ImageSourcePropType | null {
+  const sourceLower = source.toLowerCase();
+
+  if (sourceLower.includes('amazon')) return affiliateLogos.amazon;
+  if (sourceLower.includes('ebay')) return affiliateLogos.ebay;
+  if (sourceLower.includes('target')) return affiliateLogos.target;
+  if (sourceLower.includes('best buy') || sourceLower.includes('bestbuy')) return affiliateLogos.bestbuy;
+  if (sourceLower.includes('walmart')) return affiliateLogos.walmart;
+
+  return null;
+}
+
+/**
+ * Get retailer-specific styling based on source name
  */
 function getRetailerStyle(source: string): {
-  icon: React.ReactNode;
   bgColor: string;
   textColor: string;
 } {
   const sourceLower = source.toLowerCase();
 
   if (sourceLower.includes('amazon')) {
-    return {
-      icon: <FontAwesome5 name="amazon" size={14} color="#FF9900" />,
-      bgColor: 'bg-[#232F3E]',
-      textColor: '#FF9900',
-    };
+    return { bgColor: 'bg-white', textColor: '#FF9900' };
   }
   if (sourceLower.includes('ebay')) {
-    return {
-      icon: <Text className="text-[10px] font-bold text-white">eBay</Text>,
-      bgColor: 'bg-[#E53238]',
-      textColor: '#E53238',
-    };
+    return { bgColor: 'bg-white', textColor: '#E53238' };
   }
   if (sourceLower.includes('target')) {
-    return {
-      icon: <FontAwesome6 name="bullseye" size={12} color="#CC0000" />,
-      bgColor: 'bg-white',
-      textColor: '#CC0000',
-    };
+    return { bgColor: 'bg-white', textColor: '#CC0000' };
   }
   if (sourceLower.includes('best buy') || sourceLower.includes('bestbuy')) {
-    return {
-      icon: <Text className="text-[8px] font-bold text-[#FFE000]">BBY</Text>,
-      bgColor: 'bg-[#0046BE]',
-      textColor: '#0046BE',
-    };
+    return { bgColor: 'bg-white', textColor: '#0046BE' };
   }
   if (sourceLower.includes('walmart')) {
-    return {
-      icon: <FontAwesome6 name="star" size={12} color="#FFC220" />,
-      bgColor: 'bg-[#0071DC]',
-      textColor: '#0071DC',
-    };
+    return { bgColor: 'bg-white', textColor: '#0071DC' };
   }
 
   // Default fallback
-  return {
-    icon: <Ionicons name="bag-outline" size={14} color="#9CA3AF" />,
-    bgColor: 'bg-background-secondary',
-    textColor: '#6B7280',
-  };
+  return { bgColor: 'bg-background-secondary', textColor: '#6B7280' };
+}
+
+/**
+ * Retailer logo component - shows official logo or brand name as fallback
+ */
+function RetailerLogo({ source, size = 20, showNameFallback = true }: { source: string; size?: number; showNameFallback?: boolean }) {
+  const logo = getAffiliateLogo(source);
+  
+  if (logo) {
+    return (
+      <Image
+        source={logo}
+        style={{ width: size, height: size }}
+        resizeMode="contain"
+      />
+    );
+  }
+  
+  // Fallback: show brand name for unknown retailers
+  if (showNameFallback) {
+    const fontSize = Math.max(8, Math.min(12, size * 0.5));
+    return (
+      <Text 
+        className="text-foreground-muted font-medium text-center" 
+        style={{ fontSize }}
+        numberOfLines={2}
+      >
+        {source}
+      </Text>
+    );
+  }
+  
+  return <Ionicons name="bag-outline" size={size * 0.7} color="#9CA3AF" />;
 }
 
 /**
@@ -146,7 +177,7 @@ function ProductCard({ link, onShareProduct, onLinkClick }: { link: ProductLink;
           />
         ) : (
           <View className={`w-16 h-16 rounded-xl items-center justify-center ${retailerStyle.bgColor}`}>
-            {retailerStyle.icon}
+            <RetailerLogo source={link.source} size={160} />
           </View>
         )}
       </View>
@@ -186,12 +217,15 @@ function ProductCard({ link, onShareProduct, onLinkClick }: { link: ProductLink;
 
         {/* Retailer Badge */}
         <View className="flex-row items-center">
-          <View className={`w-5 h-5 rounded items-center justify-center mr-1.5 ${retailerStyle.bgColor}`}>
-            {retailerStyle.icon}
-          </View>
-          <Text className="text-[12px] text-foreground-muted flex-1" numberOfLines={1}>
-            {link.source}
-          </Text>
+          {getAffiliateLogo(link.source) ? (
+            <View className="flex-1 h-16 justify-center">
+              <RetailerLogo source={link.source} size={64} />
+            </View>
+          ) : (
+            <Text className="text-[12px] text-foreground-muted flex-1" numberOfLines={1}>
+              {link.source}
+            </Text>
+          )}
           <Ionicons name="open-outline" size={14} color="#9CA3AF" />
         </View>
       </View>
@@ -266,7 +300,7 @@ function RecommendedCard({ link, onShareProduct, onLinkClick }: { link: ProductL
         ) : (
           <View className="flex-1 items-center justify-center">
             <View className={`w-20 h-20 rounded-xl items-center justify-center ${retailerStyle.bgColor}`}>
-              <FontAwesome5 name="box-open" size={32} color="#9CA3AF" />
+              <RetailerLogo source={link.source} size={224} />
             </View>
           </View>
         )}
@@ -310,12 +344,15 @@ function RecommendedCard({ link, onShareProduct, onLinkClick }: { link: ProductL
         {/* Retailer & Shop Button */}
         <View className="flex-row items-center justify-between">
           <View className="flex-row items-center">
-            <View className={`w-6 h-6 rounded items-center justify-center mr-2 ${retailerStyle.bgColor}`}>
-              {retailerStyle.icon}
-            </View>
-            <Text className="text-[14px] text-foreground-muted">
-              {link.source}
-            </Text>
+            {getAffiliateLogo(link.source) ? (
+              <View className="h-20 justify-center">
+                <RetailerLogo source={link.source} size={80} />
+              </View>
+            ) : (
+              <Text className="text-[14px] text-foreground-muted">
+                {link.source}
+              </Text>
+            )}
           </View>
           <View className="flex-row items-center bg-amber-600 px-4 py-2 rounded-full">
             <Text className="text-[14px] font-semibold text-white mr-1">
