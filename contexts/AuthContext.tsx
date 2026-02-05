@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { Platform } from 'react-native';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
@@ -12,6 +12,11 @@ import {
   clearAnonToken,
   type AnonTokenData,
 } from '@/utils/anon-auth';
+import {
+  requestNotificationPermissions,
+  registerForPushNotifications,
+  setupNotificationListeners,
+} from '@/utils/notifications';
 import type { Session, User } from '@supabase/supabase-js';
 import type { UserProfile, Identity } from '@/types';
 
@@ -60,9 +65,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [anonId, setAnonId] = useState<string | null>(null);
+  
+  // Track if we've already prompted for notifications this session
+  const hasPromptedForNotifications = useRef(false);
 
   // Use stable zustand selector for profile (avoids re-renders from store object changes)
   const profile = useProfileStore((state) => state.profile);
+
+  // Prompt for notification permissions after sign-in
+  const promptForNotifications = useCallback(async (userId: string) => {
+    // Only prompt once per session to avoid annoying the user
+    if (hasPromptedForNotifications.current) {
+      return;
+    }
+    hasPromptedForNotifications.current = true;
+
+    try {
+      // Small delay to let the UI settle after sign-in
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      
+      // Request permissions
+      const granted = await requestNotificationPermissions();
+      
+      if (granted) {
+        // Register push token if permission granted
+        await registerForPushNotifications(userId);
+        console.log('Push notifications registered successfully');
+      } else {
+        console.log('User declined notification permissions');
+      }
+    } catch (error) {
+      console.error('Failed to set up notifications:', error);
+    }
+  }, []);
 
   // Computed: is user a guest (has anon token but no session)
   const isGuest = !session && !!anonId;
@@ -162,6 +197,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setIsLoading(false);
           // Then fetch full profile from DB in background (don't await)
           fetchProfile(session.user.id, session.user);
+          
+          // Prompt for notification permissions on sign-in
+          if (event === 'SIGNED_IN') {
+            promptForNotifications(session.user.id);
+          }
         } else {
           useProfileStore.getState().clearProfile();
           setIsLoading(false);
@@ -169,11 +209,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
+    // Set up notification listeners
+    const cleanupNotifications = setupNotificationListeners(
+      (notification) => {
+        // Handle notification received while app is foregrounded
+        console.log('Notification received in foreground:', notification.request.content.title);
+      },
+      (response) => {
+        // Handle notification tap - could navigate to specific screen
+        console.log('User tapped notification:', response.notification.request.content.title);
+      }
+    );
+
     return () => {
       isMounted = false;
       subscription.unsubscribe();
+      cleanupNotifications();
     };
-  }, [fetchProfile]);
+  }, [fetchProfile, promptForNotifications]);
 
   // Sign in with Google
   const signInWithGoogle = useCallback(async () => {

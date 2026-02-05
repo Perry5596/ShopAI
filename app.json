@@ -27,6 +27,13 @@
         {
           "photosPermission": "Shop AI needs access to your photos to select or upload product images."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#000000"
+        }
       ]
     ],
     "experiments": {
@@ -52,7 +59,10 @@
         "NSPhotoLibraryUsageDescription": "Allow Shop AI to access your photos to select or upload product images.",
         "ITSAppUsesNonExemptEncryption": false
       },
-      "bundleIdentifier": "app.luminasoftware.shopai"
+      "bundleIdentifier": "app.luminasoftware.shopai",
+      "entitlements": {
+        "aps-environment": "production"
+      }
     },
     "android": {
       "adaptiveIcon": {

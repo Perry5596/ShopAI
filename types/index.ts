@@ -20,6 +20,10 @@ export interface UserProfile {
   favoriteBestBuy?: boolean;
   favoriteWalmart?: boolean;
   favoriteEbay?: boolean;
+  // Notification settings
+  notificationsEnabled?: boolean;
+  pushToken?: string;
+  lastActivityAt?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -110,6 +114,10 @@ export interface DbProfile {
   favorite_best_buy: boolean | null;
   favorite_walmart: boolean | null;
   favorite_ebay: boolean | null;
+  // Notification settings
+  notifications_enabled: boolean | null;
+  push_token: string | null;
+  last_activity_at: string | null;
   created_at: string;
   updated_at: string;
 }

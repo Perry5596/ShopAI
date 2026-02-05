@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, Alert, Linking, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, Alert, Linking, TouchableOpacity, Switch } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,15 +6,56 @@ import Constants from 'expo-constants';
 import { IconButton } from '@/components/ui/IconButton';
 import { ProfileCard, SettingsSection, RatingModal } from '@/components/profile';
 import { useAuth } from '@/contexts/AuthContext';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { SettingsSection as SettingsSectionType } from '@/types';
 import { clearAllLocalData } from '@/utils/dev-tools';
+import {
+  handleEnableNotifications,
+  handleDisableNotifications,
+  hasNotificationPermission,
+  canReceivePushNotifications,
+} from '@/utils/notifications';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { profile, signOut, deleteAccount, refreshProfile, user, isGuest, isAuthenticated } = useAuth();
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRatingModalVisible, setIsRatingModalVisible] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(profile?.notificationsEnabled ?? true);
+  const [isTogglingNotifications, setIsTogglingNotifications] = useState(false);
+
+  // Sync notifications state with profile
+  useEffect(() => {
+    setNotificationsEnabled(profile?.notificationsEnabled ?? true);
+  }, [profile?.notificationsEnabled]);
+
+  const handleNotificationsToggle = async (value: boolean) => {
+    if (!user?.id || isTogglingNotifications) return;
+
+    setIsTogglingNotifications(true);
+    
+    try {
+      if (value) {
+        // User wants to enable notifications
+        const success = await handleEnableNotifications(user.id);
+        if (success) {
+          setNotificationsEnabled(true);
+          await refreshProfile();
+        }
+        // If not successful, the handleEnableNotifications function will show appropriate alerts
+      } else {
+        // User wants to disable notifications
+        await handleDisableNotifications(user.id);
+        setNotificationsEnabled(false);
+        await refreshProfile();
+      }
+    } catch (error) {
+      console.error('Failed to toggle notifications:', error);
+      Alert.alert('Error', 'Failed to update notification settings. Please try again.');
+    } finally {
+      setIsTogglingNotifications(false);
+    }
+  };
 
   const handleSignIn = () => {
     // Pass showSignIn param to prevent auto-redirect back to home
@@ -238,30 +279,56 @@ export default function ProfileScreen() {
   const appVersion = Constants.expoConfig?.version || '1.0.0';
   const currentYear = new Date().getFullYear();
 
+  // Build Account section items based on auth state
+  const accountItems: SettingsSectionType['items'] = [];
+
+  // Only show notifications toggle for authenticated users (not guests)
+  if (isAuthenticated && canReceivePushNotifications()) {
+    accountItems.push({
+      id: 'notifications',
+      icon: notificationsEnabled ? 'notifications' : 'notifications-outline',
+      title: 'Notifications',
+      subtitle: 'Get reminders to find deals',
+      showChevron: false,
+      rightElement: (
+        <Switch
+          value={notificationsEnabled}
+          onValueChange={handleNotificationsToggle}
+          disabled={isTogglingNotifications}
+          trackColor={{ false: '#E5E5EA', true: '#000000' }}
+          thumbColor="#FFFFFF"
+        />
+      ),
+    });
+  }
+
+  // Add other account items
+  accountItems.push(
+    {
+      id: 'preferences',
+      icon: 'settings-outline',
+      title: 'Preferences',
+      onPress: handlePreferences,
+    },
+    {
+      id: 'saved-items',
+      icon: 'bookmark-outline',
+      title: 'Saved Items',
+      onPress: handleSavedItems,
+    },
+    {
+      id: 'language',
+      icon: 'language-outline',
+      title: 'Language',
+      subtitle: 'English',
+      onPress: handleLanguage,
+    }
+  );
+
   const allSettingsSections: SettingsSectionType[] = [
     {
       title: 'Account',
-      items: [
-        {
-          id: 'preferences',
-          icon: 'settings-outline',
-          title: 'Preferences',
-          onPress: handlePreferences,
-        },
-        {
-          id: 'saved-items',
-          icon: 'bookmark-outline',
-          title: 'Saved Items',
-          onPress: handleSavedItems,
-        },
-        {
-          id: 'language',
-          icon: 'language-outline',
-          title: 'Language',
-          subtitle: 'English',
-          onPress: handleLanguage,
-        },
-      ],
+      items: accountItems,
     },
     {
       title: 'Support & Legal',

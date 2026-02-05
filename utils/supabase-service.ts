@@ -65,6 +65,9 @@ function dbProfileToUserProfile(dbProfile: DbProfile): UserProfile {
     favoriteBestBuy: dbProfile.favorite_best_buy ?? false,
     favoriteWalmart: dbProfile.favorite_walmart ?? false,
     favoriteEbay: dbProfile.favorite_ebay ?? false,
+    notificationsEnabled: dbProfile.notifications_enabled ?? true,
+    pushToken: dbProfile.push_token ?? undefined,
+    lastActivityAt: dbProfile.last_activity_at ?? undefined,
     createdAt: dbProfile.created_at,
     updatedAt: dbProfile.updated_at,
   };
@@ -183,6 +186,63 @@ export const profileService = {
 
     if (error) throw error;
     return dbProfileToUserProfile(data as DbProfile);
+  },
+
+  /**
+   * Update push notification token for a user
+   */
+  async updatePushToken(userId: string, pushToken: string | null): Promise<void> {
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        push_token: pushToken,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
+
+    if (error) throw error;
+  },
+
+  /**
+   * Update notifications enabled preference for a user
+   */
+  async updateNotificationsEnabled(userId: string, enabled: boolean): Promise<UserProfile> {
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({
+        notifications_enabled: enabled,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return dbProfileToUserProfile(data as DbProfile);
+  },
+
+  /**
+   * Update last activity timestamp for a user
+   * Called when the app becomes active to track user engagement
+   */
+  async updateLastActivity(userId: string): Promise<void> {
+    // Use the RPC function for atomic update
+    const { error } = await supabase.rpc('update_last_activity', {
+      p_user_id: userId,
+    });
+
+    if (error) {
+      // Fallback to direct update if RPC fails
+      console.warn('RPC update_last_activity failed, using direct update:', error);
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          last_activity_at: new Date().toISOString(),
+        })
+        .eq('id', userId);
+
+      if (updateError) throw updateError;
+    }
   },
 };
 
