@@ -1,19 +1,11 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { Avatar } from '../ui/Avatar';
-import * as Haptics from 'expo-haptics';
 
 interface HeaderProps {
-  userName?: string;
-  userAvatar?: string;
-  isGuest?: boolean;
+  streak?: number;
 }
 
-export function Header({ userName, userAvatar, isGuest }: HeaderProps) {
-  // For guests, show "U" for "User" instead of "?" 
-  const displayName = isGuest ? 'User' : userName;
-
+export function Header({ streak = 0 }: HeaderProps) {
   return (
     <View className="flex-row items-center justify-between px-5 py-3 mt-4">
       {/* Logo and App Name */}
@@ -22,15 +14,21 @@ export function Header({ userName, userAvatar, isGuest }: HeaderProps) {
         <Text className="text-[26px] font-inter-semibold text-foreground ml-2">Shop AI</Text>
       </View>
 
-      {/* Profile Button */}
-      <TouchableOpacity
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          router.push('/(app)/profile');
-        }}
-        activeOpacity={0.7}>
-        <Avatar imageUrl={isGuest ? undefined : userAvatar} name={displayName} size="md" />
-      </TouchableOpacity>
+      {/* Daily Streak Indicator */}
+      <View
+        className="flex-row items-center bg-orange-50 px-3 py-1.5 rounded-full"
+        style={{
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.05,
+          shadowRadius: 2,
+          elevation: 1,
+        }}>
+        <Text className="text-[18px]">🔥</Text>
+        <Text className="text-[16px] font-inter-semibold text-orange-600 ml-1">
+          {streak}
+        </Text>
+      </View>
     </View>
   );
 }

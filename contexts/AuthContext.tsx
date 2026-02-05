@@ -4,6 +4,7 @@ import { makeRedirectUri } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { supabase } from '@/utils/supabase';
+import { profileService } from '@/utils/supabase-service';
 import { useProfileStore, useShopStore } from '@/stores';
 import {
   ensureAnonToken,
@@ -112,6 +113,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (delayMs > 0) {
         await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
+
+      // Update daily streak (non-blocking, fire and forget)
+      profileService.updateStreak(userId).catch((error) => {
+        console.warn('Failed to update streak:', error);
+      });
 
       // Use getState() for stable reference to store actions
       const store = useProfileStore.getState();

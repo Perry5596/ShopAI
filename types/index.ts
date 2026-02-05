@@ -24,6 +24,9 @@ export interface UserProfile {
   notificationsEnabled?: boolean;
   pushToken?: string;
   lastActivityAt?: string;
+  // Streak tracking
+  currentStreak?: number;
+  lastActiveDate?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -118,6 +121,9 @@ export interface DbProfile {
   notifications_enabled: boolean | null;
   push_token: string | null;
   last_activity_at: string | null;
+  // Streak tracking
+  current_streak: number | null;
+  last_active_date: string | null;
   created_at: string;
   updated_at: string;
 }

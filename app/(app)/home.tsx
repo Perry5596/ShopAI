@@ -3,7 +3,8 @@ import { View, ScrollView, StyleSheet, ActivityIndicator, Text, RefreshControl, 
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Header, StatsCard, MiniStatsRow, RecentShops, FloatingActionButton } from '@/components/home';
+import { Header, StatsCard, MiniStatsRow, RecentShops } from '@/components/home';
+import { BottomTabBar } from '@/components/navigation';
 import { CenteredModal } from '@/components/ui/Modal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useShopStore } from '@/stores';
@@ -174,7 +175,7 @@ export default function HomeScreen() {
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingTop: insets.top, paddingBottom: 100 }}
+        contentContainerStyle={{ paddingTop: insets.top, paddingBottom: 140 }}
         onScroll={handleScroll}
         scrollEventThrottle={400}
         refreshControl={
@@ -186,11 +187,7 @@ export default function HomeScreen() {
           />
         }>
         {/* Header */}
-        <Header
-          userName={profile?.name}
-          userAvatar={profile?.avatarUrl}
-          isGuest={isGuest}
-        />
+        <Header streak={profile?.currentStreak ?? 0} />
 
         {/* Stats Section */}
         <View className="pt-4">
@@ -254,8 +251,8 @@ export default function HomeScreen() {
         pointerEvents="none"
       />
 
-      {/* Floating Action Button */}
-      <FloatingActionButton />
+      {/* Bottom Tab Bar */}
+      <BottomTabBar />
 
       {/* Edit Title Modal - rendered at screen level for proper overlay */}
       <CenteredModal isVisible={isEditTitleVisible} onClose={handleCancelEditTitle}>

@@ -43,9 +43,11 @@ export default function AppLayout() {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: '#FFFFFF' },
-        animation: 'slide_from_right',
+        animation: 'fade',
+        animationDuration: 150,
       }}>
       <Stack.Screen name="home" />
+      <Stack.Screen name="analytics" />
       <Stack.Screen name="profile" />
       <Stack.Screen
         name="snap"

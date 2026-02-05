@@ -1,10 +1,11 @@
-import { View, Text, ScrollView, Alert, Linking, TouchableOpacity, Switch } from 'react-native';
+import { View, Text, ScrollView, Alert, Linking, TouchableOpacity, Switch, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
-import { IconButton } from '@/components/ui/IconButton';
 import { ProfileCard, SettingsSection, RatingModal } from '@/components/profile';
+import { BottomTabBar } from '@/components/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import type { SettingsSection as SettingsSectionType } from '@/types';
@@ -452,27 +453,21 @@ export default function ProfileScreen() {
     : null;
 
   return (
-    <View className="flex-1 bg-background-secondary">
-      {/* Header */}
-      <View
-        className="bg-background-secondary"
-        style={{ paddingTop: insets.top + 8 }}>
-        <View className="flex-row items-center px-5 mb-4">
-          <IconButton
-            icon="chevron-back"
-            variant="ghost"
-            size="md"
-            onPress={() => router.back()}
-          />
-          <Text className="text-[22px] font-inter-bold text-foreground ml-2">Profile</Text>
-        </View>
-      </View>
-
+    <LinearGradient
+      colors={['#EBEBED', '#F5F5F7']}
+      locations={[0, 0.25]}
+      style={{ flex: 1 }}>
       {/* Settings Sections */}
       <ScrollView
-        className="flex-1 px-5"
+        className="flex-1"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
+        contentContainerStyle={{ paddingTop: insets.top, paddingBottom: 140 }}>
+        {/* Header - same styling as home page, scrolls with content */}
+        <View className="flex-row items-center justify-between px-5 py-3 mt-4">
+          <Text className="text-[26px] font-inter-bold text-foreground">Profile</Text>
+        </View>
+
+        <View className="px-5">
         {/* Profile Card or Sign In Button for guests */}
         {isGuest ? (
           <TouchableOpacity
@@ -535,7 +530,20 @@ export default function ProfileScreen() {
             Version {appVersion}
           </Text>
         </View>
+        </View>
       </ScrollView>
+
+      {/* Gradient fade for safe area at top */}
+      <LinearGradient
+        colors={[
+          'rgba(255,255,255,0.95)', 
+          'rgba(255,255,255,0.6)', 
+          'rgba(255,255,255,0.0)'
+        ]}
+        locations={[0, 0.35, 0.5]}
+        style={[styles.blurOverlay, { height: insets.top * 2 }]}
+        pointerEvents="none"
+      />
 
       {/* Rating Modal */}
       <RatingModal
@@ -544,6 +552,18 @@ export default function ProfileScreen() {
         userEmail={profile?.email || user?.email}
         userName={profile?.name || 'User'}
       />
-    </View>
+
+      {/* Bottom Tab Bar */}
+      <BottomTabBar />
+    </LinearGradient>
   );
 }
+
+const styles = StyleSheet.create({
+  blurOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+});
