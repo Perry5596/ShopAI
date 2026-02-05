@@ -54,8 +54,9 @@ export function BottomTabBar() {
   };
 
   const isActive = (route: string) => {
-    // Check if the current path matches the tab route
-    return pathname === route || pathname.startsWith(route + '/');
+    // Extract the actual path segment without route groups like (app)
+    const normalizedRoute = route.replace(/\([^)]+\)/g, '').replace(/\/+/g, '/');
+    return pathname === normalizedRoute || pathname.startsWith(normalizedRoute + '/');
   };
 
   return (
@@ -64,8 +65,9 @@ export function BottomTabBar() {
       style={{ paddingBottom: insets.bottom + 8 }}>
       {/* Pill-shaped tab container */}
       <View
-        className="flex-1 flex-row items-center justify-around bg-white rounded-full px-2"
+        className="flex-1 flex-row items-center justify-around rounded-full"
         style={{
+          backgroundColor: 'rgba(255,255,255,0.95)',
           paddingVertical: 6,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 2 },
@@ -81,7 +83,7 @@ export function BottomTabBar() {
               key={tab.name}
               onPress={() => handleTabPress(tab.route)}
               activeOpacity={0.7}
-              className={`items-center justify-center px-4 py-1 rounded-full ${
+              className={`items-center justify-center px-8 py-2 rounded-full ${
                 active ? 'bg-gray-200' : ''
               }`}>
               {tab.name === 'profile' ? (
@@ -120,7 +122,7 @@ export function BottomTabBar() {
           shadowRadius: 8,
           elevation: 8,
         }}>
-        <Ionicons name="add" size={30} color="#FFFFFF" />
+        <Ionicons name="add" size={36} color="#FFFFFF" />
       </TouchableOpacity>
     </View>
   );
