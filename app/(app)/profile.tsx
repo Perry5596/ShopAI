@@ -21,13 +21,28 @@ export default function ProfileScreen() {
   const { profile, signOut, deleteAccount, refreshProfile, user, isGuest, isAuthenticated } = useAuth();
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRatingModalVisible, setIsRatingModalVisible] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(profile?.notificationsEnabled ?? true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false); // Default to off
   const [isTogglingNotifications, setIsTogglingNotifications] = useState(false);
 
-  // Sync notifications state with profile
+  // Check actual device permission status and sync with profile setting
+  // Only show as enabled if BOTH profile setting is true AND device permissions are granted
   useEffect(() => {
-    setNotificationsEnabled(profile?.notificationsEnabled ?? true);
-  }, [profile?.notificationsEnabled]);
+    const checkNotificationStatus = async () => {
+      if (!isAuthenticated || !canReceivePushNotifications()) {
+        setNotificationsEnabled(false);
+        return;
+      }
+
+      // Check if device permissions are actually granted
+      const hasPermission = await hasNotificationPermission();
+      
+      // Only enabled if both profile setting is true AND device has granted permission
+      const isEnabled = (profile?.notificationsEnabled ?? false) && hasPermission;
+      setNotificationsEnabled(isEnabled);
+    };
+
+    checkNotificationStatus();
+  }, [profile?.notificationsEnabled, isAuthenticated]);
 
   const handleNotificationsToggle = async (value: boolean) => {
     if (!user?.id || isTogglingNotifications) return;
