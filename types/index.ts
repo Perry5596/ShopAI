@@ -27,6 +27,12 @@ export interface UserProfile {
   // Streak tracking
   currentStreak?: number;
   lastActiveDate?: string;
+  // Onboarding preferences
+  country?: string;
+  shoppingCategories?: string[];
+  acquisitionSource?: string;
+  acquisitionSourceOther?: string;
+  onboardingCompleted?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -124,6 +130,12 @@ export interface DbProfile {
   // Streak tracking
   current_streak: number | null;
   last_active_date: string | null;
+  // Onboarding preferences
+  country: string | null;
+  shopping_categories: string[] | null;
+  acquisition_source: string | null;
+  acquisition_source_other: string | null;
+  onboarding_completed: boolean | null;
   created_at: string;
   updated_at: string;
 }

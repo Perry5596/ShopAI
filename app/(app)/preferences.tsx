@@ -1,12 +1,18 @@
-import { View, Text, ScrollView, Switch, Alert } from 'react-native';
+import { View, Text, ScrollView, Switch, Alert, TouchableOpacity, Modal, Dimensions } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconButton } from '@/components/ui/IconButton';
 import { Card } from '@/components/ui/Card';
-import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/Button';
+import { useState, useEffect, useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/utils/supabase-service';
+import { CountryPicker } from '@/components/onboarding/CountryPicker';
+import { CategoryPicker } from '@/components/onboarding/CategoryPicker';
+import { getCountryByCode } from '@/constants/countries';
+import { shoppingCategories } from '@/constants/shopping-categories';
 
 interface PreferenceToggle {
   id: string;
@@ -15,6 +21,8 @@ interface PreferenceToggle {
   value: boolean;
   onChange: (value: boolean) => void;
 }
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function PreferencesScreen() {
   const insets = useSafeAreaInsets();
@@ -28,7 +36,15 @@ export default function PreferencesScreen() {
   const [favoriteEbay, setFavoriteEbay] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load favorite stores from profile
+  // State for onboarding preferences
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+
+  // Modal visibility
+  const [showCountryModal, setShowCountryModal] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+
+  // Load all preferences from profile
   useEffect(() => {
     if (profile) {
       setFavoriteAmazon(profile.favoriteAmazon ?? false);
@@ -36,6 +52,8 @@ export default function PreferencesScreen() {
       setFavoriteBestBuy(profile.favoriteBestBuy ?? false);
       setFavoriteWalmart(profile.favoriteWalmart ?? false);
       setFavoriteEbay(profile.favoriteEbay ?? false);
+      setSelectedCountry(profile.country ?? null);
+      setSelectedCategories(profile.shoppingCategories ?? []);
       setIsLoading(false);
     }
   }, [profile]);
@@ -124,6 +142,39 @@ export default function PreferencesScreen() {
     }
   };
 
+  // Save country selection
+  const handleCountrySave = useCallback(async (code: string | null) => {
+    if (!user?.id) return;
+    setSelectedCountry(code);
+    setShowCountryModal(false);
+    try {
+      await profileService.updateOnboardingPreferences(user.id, { country: code });
+      await refreshProfile();
+    } catch (error) {
+      console.error('Failed to update country:', error);
+      Alert.alert('Error', 'Failed to update location. Please try again.');
+      // Revert
+      setSelectedCountry(profile?.country ?? null);
+    }
+  }, [user, profile, refreshProfile]);
+
+  // Save category selection
+  const handleCategoriesSave = useCallback(async () => {
+    if (!user?.id) return;
+    setShowCategoryModal(false);
+    try {
+      await profileService.updateOnboardingPreferences(user.id, {
+        shoppingCategories: selectedCategories,
+      });
+      await refreshProfile();
+    } catch (error) {
+      console.error('Failed to update categories:', error);
+      Alert.alert('Error', 'Failed to update shopping interests. Please try again.');
+      // Revert
+      setSelectedCategories(profile?.shoppingCategories ?? []);
+    }
+  }, [user, selectedCategories, profile, refreshProfile]);
+
   const favoriteStores: PreferenceToggle[] = [
     {
       id: 'amazon',
@@ -162,6 +213,14 @@ export default function PreferencesScreen() {
     },
   ];
 
+  // Resolve country display
+  const countryData = selectedCountry ? getCountryByCode(selectedCountry) : null;
+
+  // Resolve selected category labels
+  const selectedCategoryLabels = selectedCategories
+    .map((id) => shoppingCategories.find((c) => c.id === id)?.label)
+    .filter(Boolean);
+
   return (
     <View className="flex-1 bg-background-secondary">
       {/* Header */}
@@ -187,6 +246,56 @@ export default function PreferencesScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
         
+        {/* Location Section */}
+        <View className="mb-6">
+          <Text className="text-[16px] font-inter-bold text-foreground mb-2">
+            Location
+          </Text>
+          <Text className="text-[14px] font-inter-medium text-foreground-muted mb-4">
+            Helps us find the best deals for your region
+          </Text>
+          
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowCountryModal(true);
+            }}>
+            <Card
+              variant="default"
+              padding="md"
+              className="overflow-hidden"
+              style={{
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.06,
+                shadowRadius: 4,
+                elevation: 2,
+              }}>
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center flex-1">
+                  {countryData ? (
+                    <>
+                      <Text className="text-[22px] mr-3">{countryData.flag}</Text>
+                      <Text className="text-[16px] font-inter-medium text-foreground">
+                        {countryData.name}
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Ionicons name="location-outline" size={22} color="#9CA3AF" style={{ marginRight: 12 }} />
+                      <Text className="text-[16px] font-inter-medium text-foreground-muted">
+                        Not set
+                      </Text>
+                    </>
+                  )}
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+              </View>
+            </Card>
+          </TouchableOpacity>
+        </View>
+
         {/* Appearance Section */}
         <View className="mb-6">
           <Text className="text-[16px] font-inter-bold text-foreground mb-2">
@@ -335,7 +444,145 @@ export default function PreferencesScreen() {
             ))}
           </Card>
         </View>
+
+        {/* Shopping Interests Section */}
+        <View className="mb-6">
+          <Text className="text-[16px] font-inter-bold text-foreground mb-2">
+            Shopping Interests
+          </Text>
+          <Text className="text-[14px] font-inter-medium text-foreground-muted mb-4">
+            Categories that shape your shopping recommendations
+          </Text>
+
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowCategoryModal(true);
+            }}>
+            <Card
+              variant="default"
+              padding="md"
+              className="overflow-hidden"
+              style={{
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.06,
+                shadowRadius: 4,
+                elevation: 2,
+              }}>
+              {selectedCategoryLabels.length > 0 ? (
+                <View>
+                  <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+                    {selectedCategoryLabels.map((label) => (
+                      <View
+                        key={label}
+                        className="bg-background-secondary rounded-xl px-3 py-1.5">
+                        <Text className="text-[14px] font-inter-medium text-foreground">
+                          {label}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                  <View className="flex-row items-center justify-end mt-3">
+                    <Text className="text-[14px] font-inter-medium text-foreground-muted mr-1">
+                      Edit
+                    </Text>
+                    <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+                  </View>
+                </View>
+              ) : (
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-row items-center">
+                    <Ionicons name="pricetags-outline" size={22} color="#9CA3AF" style={{ marginRight: 12 }} />
+                    <Text className="text-[16px] font-inter-medium text-foreground-muted">
+                      None selected
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                </View>
+              )}
+            </Card>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
+
+      {/* Country Picker Modal */}
+      <Modal
+        visible={showCountryModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowCountryModal(false)}>
+        <View className="flex-1 bg-background" style={{ paddingTop: 8 }}>
+          {/* Modal header */}
+          <View className="flex-row items-center justify-between px-5 py-3 border-b border-border-light">
+            <TouchableOpacity onPress={() => setShowCountryModal(false)}>
+              <Text className="text-[16px] font-inter-medium text-foreground-muted">
+                Cancel
+              </Text>
+            </TouchableOpacity>
+            <Text className="text-[17px] font-inter-bold text-foreground">
+              Location
+            </Text>
+            {selectedCountry ? (
+              <TouchableOpacity onPress={() => handleCountrySave(null)}>
+                <Text className="text-[16px] font-inter-medium text-destructive">
+                  Clear
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={{ width: 50 }} />
+            )}
+          </View>
+
+          {/* Country picker */}
+          <CountryPicker
+            selectedCode={selectedCountry}
+            onSelect={(code) => handleCountrySave(code)}
+          />
+        </View>
+      </Modal>
+
+      {/* Category Picker Modal */}
+      <Modal
+        visible={showCategoryModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => {
+          handleCategoriesSave();
+        }}>
+        <View className="flex-1 bg-background" style={{ paddingTop: 8 }}>
+          {/* Modal header */}
+          <View className="flex-row items-center justify-between px-5 py-3 border-b border-border-light">
+            <TouchableOpacity
+              onPress={() => {
+                // Revert changes if cancelled
+                setSelectedCategories(profile?.shoppingCategories ?? []);
+                setShowCategoryModal(false);
+              }}>
+              <Text className="text-[16px] font-inter-medium text-foreground-muted">
+                Cancel
+              </Text>
+            </TouchableOpacity>
+            <Text className="text-[17px] font-inter-bold text-foreground">
+              Shopping Interests
+            </Text>
+            <TouchableOpacity onPress={handleCategoriesSave}>
+              <Text className="text-[16px] font-inter-bold text-foreground">
+                Done
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Category picker */}
+          <View className="flex-1 pt-4">
+            <CategoryPicker
+              selectedIds={selectedCategories}
+              onToggle={setSelectedCategories}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

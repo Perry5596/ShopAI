@@ -9,7 +9,7 @@ import * as Haptics from 'expo-haptics';
 
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
-  const { signInWithGoogle, signInWithApple, continueAsGuest, isAuthenticated, isGuest, isLoading } = useAuth();
+  const { signInWithGoogle, signInWithApple, continueAsGuest, isAuthenticated, isGuest, isLoading, profile } = useAuth();
   const { showSignIn } = useLocalSearchParams<{ showSignIn?: string }>();
 
   // If showSignIn is true, a guest is explicitly trying to sign in - don't auto-redirect
@@ -17,19 +17,30 @@ export default function WelcomeScreen() {
   const isExplicitSignIn = showSignIn === 'true';
   const shouldSkipRedirect = isExplicitSignIn && isGuest && !isAuthenticated;
 
-  // Redirect to home if already authenticated or guest (unless a guest is explicitly viewing sign-in options)
-  // Use setTimeout to defer navigation to avoid conflicts with React's render cycle
+  // Redirect to home (or onboarding) if already authenticated or guest
+  // Authenticated users who haven't completed onboarding go to onboarding first
+  // Guests skip onboarding entirely
+  //
+  // IMPORTANT: For authenticated users we must wait until the DB profile has loaded
+  // before deciding. The metadata-only profile (set immediately on sign-in) won't
+  // have `onboardingCompleted` defined, so we use `undefined` as the signal that
+  // the DB profile hasn't arrived yet. Only `false` (explicitly from the DB) means
+  // the user truly hasn't completed onboarding.
+  const profileReady = !isAuthenticated || (profile && profile.onboardingCompleted !== undefined);
+
   useEffect(() => {
-    if ((isAuthenticated || isGuest) && !isLoading && !shouldSkipRedirect) {
-      // Defer navigation to next tick to avoid "Maximum update depth exceeded" error
-      // This happens because router.replace triggers state changes in react-navigation
-      // while React is still processing the current render
+    if ((isAuthenticated || isGuest) && !isLoading && !shouldSkipRedirect && profileReady) {
       const timeoutId = setTimeout(() => {
-        router.replace('/(app)/home');
+        // Authenticated users who haven't completed onboarding go to onboarding
+        if (isAuthenticated && profile && profile.onboardingCompleted === false) {
+          router.replace('/(app)/onboarding');
+        } else {
+          router.replace('/(app)/home');
+        }
       }, 0);
       return () => clearTimeout(timeoutId);
     }
-  }, [isAuthenticated, isGuest, isLoading, shouldSkipRedirect]);
+  }, [isAuthenticated, isGuest, isLoading, shouldSkipRedirect, profileReady, profile]);
 
   const handleAppleSignIn = async () => {
     try {

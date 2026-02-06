@@ -46,6 +46,7 @@ export default function AppLayout() {
         animation: 'fade',
         animationDuration: 150,
       }}>
+      <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
       <Stack.Screen name="home" />
       <Stack.Screen name="analytics" />
       <Stack.Screen name="profile" />

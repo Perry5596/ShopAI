@@ -70,6 +70,11 @@ function dbProfileToUserProfile(dbProfile: DbProfile): UserProfile {
     lastActivityAt: dbProfile.last_activity_at ?? undefined,
     currentStreak: dbProfile.current_streak ?? 0,
     lastActiveDate: dbProfile.last_active_date ?? undefined,
+    country: dbProfile.country ?? undefined,
+    shoppingCategories: dbProfile.shopping_categories ?? [],
+    acquisitionSource: dbProfile.acquisition_source ?? undefined,
+    acquisitionSourceOther: dbProfile.acquisition_source_other ?? undefined,
+    onboardingCompleted: dbProfile.onboarding_completed ?? false,
     createdAt: dbProfile.created_at,
     updatedAt: dbProfile.updated_at,
   };
@@ -313,6 +318,68 @@ export const profileService = {
     if (updateError) throw updateError;
 
     return { streak: newStreak, updated: true };
+  },
+
+  /**
+   * Complete the onboarding flow for a user.
+   * Saves all onboarding answers and sets onboarding_completed = true.
+   * Called once when the user finishes (or skips through) onboarding.
+   */
+  async completeOnboarding(
+    userId: string,
+    data: {
+      country?: string | null;
+      shoppingCategories?: string[];
+      acquisitionSource?: string | null;
+      acquisitionSourceOther?: string | null;
+    }
+  ): Promise<UserProfile> {
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .update({
+        country: data.country ?? null,
+        shopping_categories: data.shoppingCategories ?? [],
+        acquisition_source: data.acquisitionSource ?? null,
+        acquisition_source_other: data.acquisitionSourceOther ?? null,
+        onboarding_completed: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return dbProfileToUserProfile(profile as DbProfile);
+  },
+
+  /**
+   * Update onboarding preferences (country and shopping categories only).
+   * Used from the Preferences screen to edit answers after onboarding.
+   * Does NOT include acquisition_source (that's analytics-only, not editable).
+   */
+  async updateOnboardingPreferences(
+    userId: string,
+    data: {
+      country?: string | null;
+      shoppingCategories?: string[];
+    }
+  ): Promise<UserProfile> {
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (data.country !== undefined) updateData.country = data.country;
+    if (data.shoppingCategories !== undefined) updateData.shopping_categories = data.shoppingCategories;
+
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .update(updateData)
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return dbProfileToUserProfile(profile as DbProfile);
   },
 };
 
