@@ -27,6 +27,7 @@ function mapDbProduct(p: Record<string, unknown>, categoryId: string): SearchPro
     rating: (p.rating as number | null) ?? null,
     reviewCount: (p.review_count as number | null) ?? null,
     brand: (p.brand as string | null) ?? null,
+    isFavorite: (p.is_favorite as boolean) ?? false,
     createdAt: (p.created_at as string) || new Date().toISOString(),
   };
 }

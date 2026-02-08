@@ -1,26 +1,12 @@
-import { View, Text, Image, TouchableOpacity, Linking, ImageSourcePropType } from 'react-native';
+import { useState } from 'react';
+import {
+  View, Text, Image, TouchableOpacity, Linking,
+  ActionSheetIOS, Platform, Alert, Share,
+} from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import type { SearchProduct } from '@/types';
-
-// Affiliate logo imports (reuse from shop feature)
-const affiliateLogos: Record<string, ImageSourcePropType> = {
-  amazon: require('@/assets/affiliate_logos/Amazon.com, Inc..png'),
-  ebay: require('@/assets/affiliate_logos/eBay Inc..png'),
-  target: require('@/assets/affiliate_logos/Target Corporation.png'),
-  bestbuy: require('@/assets/affiliate_logos/Best Buy Co., Inc..png'),
-  walmart: require('@/assets/affiliate_logos/Walmart Inc..png'),
-};
-
-function getAffiliateLogo(source: string): ImageSourcePropType | null {
-  const s = source.toLowerCase();
-  if (s.includes('amazon')) return affiliateLogos.amazon;
-  if (s.includes('ebay')) return affiliateLogos.ebay;
-  if (s.includes('target')) return affiliateLogos.target;
-  if (s.includes('best buy') || s.includes('bestbuy')) return affiliateLogos.bestbuy;
-  if (s.includes('walmart')) return affiliateLogos.walmart;
-  return null;
-}
 
 function StarRating({ rating, size = 10 }: { rating: number; size?: number }) {
   const full = Math.floor(rating);
@@ -46,6 +32,8 @@ interface SearchProductCardProps {
   /** Short reason why it's recommended */
   recommendReason?: string;
   onLinkClick?: () => void;
+  /** Called when the user saves/unsaves this product via long-press menu */
+  onSaveProduct?: (productId: string) => Promise<boolean>;
 }
 
 const CARD_WIDTH = 160;
@@ -53,19 +41,92 @@ const CARD_WIDTH = 160;
 /**
  * Compact product card for horizontal carousel display.
  * Shows an "AI Pick" badge when recommended.
+ * Long-press opens a native menu with Copy Link, Share, Save for Later.
  */
-export function SearchProductCard({ product, isRecommended, recommendReason, onLinkClick }: SearchProductCardProps) {
+export function SearchProductCard({
+  product,
+  isRecommended,
+  recommendReason,
+  onLinkClick,
+  onSaveProduct,
+}: SearchProductCardProps) {
+  const [isSaved, setIsSaved] = useState(product.isFavorite);
+
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onLinkClick?.();
     Linking.openURL(product.affiliateUrl);
   };
 
-  const logo = getAffiliateLogo(product.source);
+  const handleCopyLink = async () => {
+    await Clipboard.setStringAsync(product.affiliateUrl);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        message: `${product.title}\n${product.affiliateUrl}`,
+        url: product.affiliateUrl, // iOS uses this
+      });
+    } catch {
+      // User cancelled — ignore
+    }
+  };
+
+  const handleSaveForLater = async () => {
+    if (!onSaveProduct) return;
+    try {
+      // Optimistic update
+      const prev = isSaved;
+      setIsSaved(!prev);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      const newState = await onSaveProduct(product.id);
+      setIsSaved(newState);
+    } catch {
+      // Revert on failure
+      setIsSaved(product.isFavorite);
+    }
+  };
+
+  const handleLongPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    const saveLabel = isSaved ? 'Remove from Saved' : 'Save for Later';
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Copy Link', 'Share', saveLabel, 'Cancel'],
+          cancelButtonIndex: 3,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 0) handleCopyLink();
+          else if (buttonIndex === 1) handleShare();
+          else if (buttonIndex === 2) handleSaveForLater();
+        }
+      );
+    } else {
+      // Android fallback: use Alert as a simple action menu
+      Alert.alert(
+        product.title,
+        undefined,
+        [
+          { text: 'Copy Link', onPress: handleCopyLink },
+          { text: 'Share', onPress: handleShare },
+          { text: saveLabel, onPress: handleSaveForLater },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      );
+    }
+  };
 
   return (
     <TouchableOpacity
       onPress={handlePress}
+      onLongPress={handleLongPress}
+      delayLongPress={400}
       activeOpacity={0.7}
       style={{ width: CARD_WIDTH }}
       className={`bg-card rounded-2xl overflow-hidden mr-3 ${
@@ -124,18 +185,14 @@ export function SearchProductCard({ product, isRecommended, recommendReason, onL
           </View>
         )}
 
-        {/* Brand / Retailer */}
+        {/* Brand */}
         <View className="flex-row items-center justify-between">
           {product.brand ? (
             <Text className="text-[10px] text-foreground-muted flex-1 mr-1" numberOfLines={1}>
               {product.brand}
             </Text>
-          ) : logo ? (
-            <View className="h-4 justify-center">
-              <Image source={logo} style={{ width: 16, height: 16 }} resizeMode="contain" />
-            </View>
           ) : (
-            <Text className="text-[10px] text-foreground-muted">{product.source}</Text>
+            <View className="flex-1" />
           )}
           <Ionicons name="open-outline" size={10} color="#9CA3AF" />
         </View>

@@ -351,6 +351,7 @@ export interface SearchProduct {
   rating: number | null;
   reviewCount: number | null;
   brand: string | null;
+  isFavorite: boolean;
   createdAt: string;
 }
 
@@ -441,6 +442,7 @@ export interface DbSearchProduct {
   rating: number | null;
   review_count: number | null;
   brand: string | null;
+  is_favorite: boolean;
   created_at: string;
 }
 

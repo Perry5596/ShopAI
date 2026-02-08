@@ -3,7 +3,7 @@ import { View, FlatList, Alert, TouchableOpacity, NativeSyntheticEvent, NativeSc
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSearchStore } from '@/stores/searchStore';
-import { analyticsService } from '@/utils/supabase-service';
+import { analyticsService, savedProductService } from '@/utils/supabase-service';
 import { SearchHeader } from '@/components/search/SearchHeader';
 import { ChatInput } from '@/components/search/ChatInput';
 import { MessageBubble } from '@/components/search/MessageBubble';
@@ -77,6 +77,10 @@ export default function SearchScreen() {
     }
   }, [session?.user?.id, isGuest]);
 
+  const handleSaveProduct = useCallback(async (productId: string): Promise<boolean> => {
+    return savedProductService.toggleFavorite(productId);
+  }, []);
+
   // Track scroll position to decide when to show the scroll-to-bottom button
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
@@ -110,9 +114,10 @@ export default function SearchScreen() {
         isLastAssistant={index === lastAssistantIndex}
         isSearching={isSearching}
         onLinkClick={handleLinkClick}
+        onSaveProduct={handleSaveProduct}
       />
     ),
-    [handleFollowUpAnswer, lastAssistantIndex, isSearching, handleLinkClick]
+    [handleFollowUpAnswer, lastAssistantIndex, isSearching, handleLinkClick, handleSaveProduct]
   );
 
   // Show typing indicator while searching and before categories arrive

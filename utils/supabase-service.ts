@@ -955,6 +955,7 @@ function dbSearchProductToSearchProduct(dbProduct: DbSearchProduct): SearchProdu
     rating: dbProduct.rating,
     reviewCount: dbProduct.review_count,
     brand: dbProduct.brand,
+    isFavorite: dbProduct.is_favorite ?? false,
     createdAt: dbProduct.created_at,
   };
 }
@@ -1128,6 +1129,115 @@ export const conversationService = {
       .eq('id', conversationId);
 
     if (error) throw error;
+  },
+};
+
+// ============================================================================
+// Saved Product Service (individual product favorites from text search)
+// ============================================================================
+
+export const savedProductService = {
+  /**
+   * Toggle the is_favorite flag on a search product.
+   * Returns the updated favorite state.
+   */
+  async toggleFavorite(productId: string): Promise<boolean> {
+    // First read the current state
+    const { data: current, error: readError } = await supabase
+      .from('search_products')
+      .select('is_favorite')
+      .eq('id', productId)
+      .single();
+
+    if (readError) throw readError;
+
+    const newValue = !(current as { is_favorite: boolean }).is_favorite;
+
+    const { error: updateError } = await supabase
+      .from('search_products')
+      .update({ is_favorite: newValue })
+      .eq('id', productId);
+
+    if (updateError) throw updateError;
+    return newValue;
+  },
+
+  /**
+   * Fetch all saved (favorite) search products for a user.
+   * Joins through categories → conversations to filter by user.
+   */
+  async fetchSavedProducts(userId: string): Promise<SearchProduct[]> {
+    // We need to join through search_categories → conversations to get user's products
+    // Supabase doesn't support deep joins easily, so we go step by step:
+
+    // 1. Get all conversation IDs for this user
+    const { data: convData, error: convError } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('user_id', userId);
+
+    if (convError) throw convError;
+    if (!convData || convData.length === 0) return [];
+
+    const conversationIds = convData.map((c: { id: string }) => c.id);
+
+    // 2. Get all category IDs for these conversations
+    const { data: catData, error: catError } = await supabase
+      .from('search_categories')
+      .select('id')
+      .in('conversation_id', conversationIds);
+
+    if (catError) throw catError;
+    if (!catData || catData.length === 0) return [];
+
+    const categoryIds = catData.map((c: { id: string }) => c.id);
+
+    // 3. Get all favorite products from these categories
+    const { data: productData, error: prodError } = await supabase
+      .from('search_products')
+      .select('*')
+      .in('category_id', categoryIds)
+      .eq('is_favorite', true)
+      .order('created_at', { ascending: false });
+
+    if (prodError) throw prodError;
+    if (!productData || productData.length === 0) return [];
+
+    return (productData as DbSearchProduct[]).map(dbSearchProductToSearchProduct);
+  },
+
+  /**
+   * Count saved (favorite) search products for a user.
+   */
+  async countSavedProducts(userId: string): Promise<number> {
+    const { data: convData, error: convError } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('user_id', userId);
+
+    if (convError) throw convError;
+    if (!convData || convData.length === 0) return 0;
+
+    const conversationIds = convData.map((c: { id: string }) => c.id);
+
+    const { data: catData, error: catError } = await supabase
+      .from('search_categories')
+      .select('id')
+      .in('conversation_id', conversationIds);
+
+    if (catError) throw catError;
+    if (!catData || catData.length === 0) return 0;
+
+    const categoryIds = catData.map((c: { id: string }) => c.id);
+
+    const { count, error: countError } = await supabase
+      .from('search_products')
+      .select('id', { count: 'exact', head: true })
+      .in('category_id', categoryIds)
+      .eq('is_favorite', true);
+
+    if (countError) throw countError;
+    return count ?? 0;
   },
 };
 
