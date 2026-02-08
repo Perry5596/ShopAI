@@ -253,7 +253,9 @@ async function runStreamingAgentLoop(
   messageId: string
 ): Promise<{
   summary: string;
-  suggestedQuestions: string[];
+  recommendations: Array<{ categoryLabel: string; productTitle: string; reason: string }>;
+  followUpQuestion: string | null;
+  followUpOptions: string[];
   allCategories: Array<{ id: string; label: string; description: string; products: unknown[] }>;
 }> {
   let currentMessages = [...messages];
@@ -330,7 +332,9 @@ async function runStreamingAgentLoop(
         const parsed = JSON.parse(jsonMatch[0]);
         return {
           summary: parsed.summary || 'Here are the results I found for you.',
-          suggestedQuestions: parsed.suggestedQuestions || [],
+          recommendations: parsed.recommendations || [],
+          followUpQuestion: parsed.followUpQuestion || null,
+          followUpOptions: parsed.followUpOptions || [],
           allCategories,
         };
       }
@@ -340,7 +344,9 @@ async function runStreamingAgentLoop(
 
     return {
       summary: content || 'Here are the results I found for you.',
-      suggestedQuestions: [],
+      recommendations: [],
+      followUpQuestion: null,
+      followUpOptions: [],
       allCategories,
     };
   }
@@ -348,7 +354,9 @@ async function runStreamingAgentLoop(
   // Max loops reached
   return {
     summary: 'Here are the results I found for you.',
-    suggestedQuestions: [],
+    recommendations: [],
+    followUpQuestion: null,
+    followUpOptions: [],
     allCategories,
   };
 }
@@ -495,7 +503,9 @@ serve(async (req) => {
 
       // Update the assistant message with final content
       const assistantMetadata = {
-        suggestedQuestions: result.suggestedQuestions,
+        recommendations: result.recommendations,
+        followUpQuestion: result.followUpQuestion,
+        followUpOptions: result.followUpOptions,
         categoriesCount: result.allCategories.length,
       };
 
@@ -510,7 +520,9 @@ serve(async (req) => {
       // Stream summary
       writer.write('summary', {
         content: result.summary,
-        suggestedQuestions: result.suggestedQuestions,
+        recommendations: result.recommendations,
+        followUpQuestion: result.followUpQuestion,
+        followUpOptions: result.followUpOptions,
       });
 
       // Track analytics

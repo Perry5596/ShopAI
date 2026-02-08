@@ -298,6 +298,13 @@ export interface Conversation {
   updatedAt: string;
 }
 
+// AI recommendation for a category
+export interface ProductRecommendation {
+  categoryLabel: string;
+  productTitle: string;
+  reason: string;
+}
+
 // Chat message (user or assistant)
 export interface Message {
   id: string;
@@ -307,7 +314,13 @@ export interface Message {
   metadata?: Record<string, unknown>;
   /** Categories attached to this assistant message (if any) */
   categories?: SearchCategory[];
-  /** Suggested follow-up questions (from metadata) */
+  /** AI recommendations per category */
+  recommendations?: ProductRecommendation[];
+  /** Single follow-up question the AI asks */
+  followUpQuestion?: string | null;
+  /** Tappable answer options for the follow-up question */
+  followUpOptions?: string[];
+  /** @deprecated Use followUpQuestion + followUpOptions instead */
   suggestedQuestions?: string[];
   createdAt: string;
 }
@@ -375,7 +388,10 @@ export interface AgentSearchResponse {
       created_at: string;
     }>;
   }>;
-  suggestedQuestions: string[];
+  suggestedQuestions: string[]; // deprecated
+  recommendations?: Array<{ categoryLabel: string; productTitle: string; reason: string }>;
+  followUpQuestion?: string | null;
+  followUpOptions?: string[];
   rateLimit?: {
     remaining: number;
     limit: number;

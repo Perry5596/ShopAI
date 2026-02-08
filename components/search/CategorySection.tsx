@@ -5,13 +5,16 @@ import type { SearchCategory } from '@/types';
 
 interface CategorySectionProps {
   category: SearchCategory;
+  /** AI recommendation for this category */
+  recommendation?: { productTitle: string; reason: string };
   onLinkClick?: () => void;
 }
 
 /**
- * A single category section: label, description, and horizontal product carousel.
+ * A single category section: label, description, optional AI pick, and
+ * horizontal product carousel.
  */
-export function CategorySection({ category, onLinkClick }: CategorySectionProps) {
+export function CategorySection({ category, recommendation, onLinkClick }: CategorySectionProps) {
   return (
     <View className="mb-5">
       {/* Category Header */}
@@ -36,7 +39,17 @@ export function CategorySection({ category, onLinkClick }: CategorySectionProps)
           data={category.products}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <SearchProductCard product={item} onLinkClick={onLinkClick} />
+            <SearchProductCard
+              product={item}
+              isRecommended={
+                recommendation != null &&
+                item.title.toLowerCase().includes(
+                  recommendation.productTitle.toLowerCase().substring(0, 30)
+                )
+              }
+              recommendReason={recommendation?.reason}
+              onLinkClick={onLinkClick}
+            />
           )}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 16 }}

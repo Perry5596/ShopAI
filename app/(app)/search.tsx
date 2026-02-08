@@ -1,5 +1,6 @@
-import { useCallback, useRef } from 'react';
-import { View, FlatList, Alert } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { View, FlatList, Alert, TouchableOpacity, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSearchStore } from '@/stores/searchStore';
 import { analyticsService } from '@/utils/supabase-service';
@@ -13,12 +14,14 @@ import type { Message } from '@/types';
 export default function SearchScreen() {
   const { getIdentity, session, isGuest } = useAuth();
   const flatListRef = useRef<FlatList>(null);
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  // Track whether the user just sent a message (to auto-scroll only on send)
+  const justSentRef = useRef(false);
 
   const {
     activeConversation,
     isSearching,
     streamStatus,
-    suggestedQuestions,
     error,
     startSearch,
     sendFollowUp,
@@ -28,7 +31,6 @@ export default function SearchScreen() {
   const messages = activeConversation?.messages || [];
   const conversationTitle = activeConversation?.title || undefined;
 
-  // Scroll to bottom when new messages arrive
   const scrollToBottom = useCallback(() => {
     if (flatListRef.current && messages.length > 0) {
       setTimeout(() => {
@@ -46,26 +48,25 @@ export default function SearchScreen() {
           return;
         }
 
+        // Mark that user just sent a message — triggers auto-scroll
+        justSentRef.current = true;
+        scrollToBottom();
+
         if (activeConversation?.id) {
-          // Follow-up in existing conversation
           await sendFollowUp(activeConversation.id, query, identity);
         } else {
-          // Start new search
           await startSearch(query, identity);
         }
-
-        scrollToBottom();
       } catch (err) {
-        // Error is already set in the store
         console.error('Search error:', err);
       }
     },
     [activeConversation?.id, getIdentity, startSearch, sendFollowUp, scrollToBottom]
   );
 
-  const handleSuggestedQuestion = useCallback(
-    (question: string) => {
-      handleSend(question);
+  const handleFollowUpAnswer = useCallback(
+    (answer: string) => {
+      handleSend(answer);
     },
     [handleSend]
   );
@@ -76,7 +77,26 @@ export default function SearchScreen() {
     }
   }, [session?.user?.id, isGuest]);
 
-  // Find the last assistant message index for suggested questions
+  // Track scroll position to decide when to show the scroll-to-bottom button
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
+    // Show button if user is more than 300px from the bottom
+    setShowScrollButton(distanceFromBottom > 300);
+  }, []);
+
+  // Only auto-scroll on content size change if the user just sent a message
+  const handleContentSizeChange = useCallback(() => {
+    if (justSentRef.current) {
+      scrollToBottom();
+      // Reset after a short delay to stop auto-scrolling once results start streaming
+      setTimeout(() => {
+        justSentRef.current = false;
+      }, 500);
+    }
+  }, [scrollToBottom]);
+
+  // Find the last assistant message index
   const lastAssistantIndex = messages.reduce(
     (last: number, msg: Message, idx: number) => (msg.role === 'assistant' ? idx : last),
     -1
@@ -86,23 +106,20 @@ export default function SearchScreen() {
     ({ item, index }: { item: Message; index: number }) => (
       <MessageBubble
         message={item}
-        onSuggestedQuestion={handleSuggestedQuestion}
+        onFollowUpAnswer={handleFollowUpAnswer}
         isLastAssistant={index === lastAssistantIndex}
         isSearching={isSearching}
         onLinkClick={handleLinkClick}
       />
     ),
-    [handleSuggestedQuestion, lastAssistantIndex, isSearching, handleLinkClick]
+    [handleFollowUpAnswer, lastAssistantIndex, isSearching, handleLinkClick]
   );
 
-  // Determine whether to show the typing indicator:
-  // Show while searching AND the streaming assistant message has no categories yet
-  // (once categories start streaming in, the message bubble itself shows progress)
+  // Show typing indicator while searching and before categories arrive
   const showTypingIndicator = isSearching && (() => {
     const streamingMsg = messages.find(
       (m) => m.id.startsWith('streaming-') || m.id.startsWith('streaming-followup-')
     );
-    // Show if no streaming message yet, or if it has no categories yet
     return !streamingMsg || !streamingMsg.categories || streamingMsg.categories.length === 0;
   })();
 
@@ -113,25 +130,45 @@ export default function SearchScreen() {
       {messages.length === 0 && !isSearching ? (
         <EmptySearch onSuggestionPress={handleSend} />
       ) : (
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          keyExtractor={(item) => item.id}
-          renderItem={renderMessage}
-          contentContainerStyle={{ paddingTop: 16, paddingBottom: 8 }}
-          onContentSizeChange={scrollToBottom}
-          ListFooterComponent={
-            showTypingIndicator ? (
-              <TypingIndicator statusText={streamStatus} />
-            ) : null
-          }
-          // Extra data to force re-render when categories stream in
-          extraData={[
-            isSearching,
-            streamStatus,
-            messages.map((m) => `${m.id}-${m.categories?.length || 0}-${m.content?.length || 0}`).join(','),
-          ]}
-        />
+        <View className="flex-1">
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={(item) => item.id}
+            renderItem={renderMessage}
+            contentContainerStyle={{ paddingTop: 16, paddingBottom: 8 }}
+            onContentSizeChange={handleContentSizeChange}
+            onScroll={handleScroll}
+            scrollEventThrottle={200}
+            ListFooterComponent={
+              showTypingIndicator ? (
+                <TypingIndicator statusText={streamStatus} />
+              ) : null
+            }
+            extraData={[
+              isSearching,
+              streamStatus,
+              messages.map((m) => `${m.id}-${m.categories?.length || 0}-${m.content?.length || 0}`).join(','),
+            ]}
+          />
+
+          {/* Scroll-to-bottom button */}
+          {showScrollButton && (
+            <TouchableOpacity
+              onPress={scrollToBottom}
+              activeOpacity={0.8}
+              className="absolute bottom-3 right-4 w-10 h-10 bg-foreground rounded-full items-center justify-center"
+              style={{
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.2,
+                shadowRadius: 4,
+                elevation: 4,
+              }}>
+              <Ionicons name="chevron-down" size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
+        </View>
       )}
 
       <ChatInput

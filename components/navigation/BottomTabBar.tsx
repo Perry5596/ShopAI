@@ -6,7 +6,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
   withTiming,
   interpolate,
 } from 'react-native-reanimated';
@@ -46,19 +45,19 @@ const tabs: TabItem[] = [
   },
 ];
 
+const FADE_DURATION = 200;
+
 export function BottomTabBar() {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const { profile, isGuest } = useAuth();
   const clearActiveConversation = useSearchStore((s) => s.clearActiveConversation);
 
-  // Animation values
-  const menuOpen = useSharedValue(0); // 0 = closed, 1 = open
+  const menuOpen = useSharedValue(0);
 
   const handleTabPress = (route: string) => {
-    // Close menu if open
     if (menuOpen.value > 0.5) {
-      menuOpen.value = withSpring(0, { damping: 20, stiffness: 300 });
+      menuOpen.value = withTiming(0, { duration: FADE_DURATION });
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push(route as any);
@@ -67,27 +66,27 @@ export function BottomTabBar() {
   const handlePlusPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (menuOpen.value > 0.5) {
-      menuOpen.value = withSpring(0, { damping: 20, stiffness: 300 });
+      menuOpen.value = withTiming(0, { duration: FADE_DURATION });
     } else {
-      menuOpen.value = withSpring(1, { damping: 18, stiffness: 280 });
+      menuOpen.value = withTiming(1, { duration: FADE_DURATION });
     }
   };
 
   const closeMenu = () => {
-    menuOpen.value = withSpring(0, { damping: 20, stiffness: 300 });
+    menuOpen.value = withTiming(0, { duration: FADE_DURATION });
   };
 
   const handleScanProduct = () => {
     closeMenu();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setTimeout(() => router.push('/(app)/snap'), 100);
+    setTimeout(() => router.push('/(app)/snap'), 120);
   };
 
   const handleSearchProducts = () => {
     closeMenu();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     clearActiveConversation();
-    setTimeout(() => router.push('/(app)/search' as any), 100);
+    setTimeout(() => router.push('/(app)/search' as any), 120);
   };
 
   const isActive = (route: string) => {
@@ -95,45 +94,26 @@ export function BottomTabBar() {
     return pathname === normalizedRoute || pathname.startsWith(normalizedRoute + '/');
   };
 
-  // Animated styles for the + button rotation
+  // + button rotates to X
   const plusButtonStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${interpolate(menuOpen.value, [0, 1], [0, 45])}deg` }],
   }));
 
-  // Animated styles for the backdrop
+  // Backdrop fades in
   const backdropStyle = useAnimatedStyle(() => ({
     opacity: menuOpen.value * 0.4,
     pointerEvents: menuOpen.value > 0.1 ? 'auto' as const : 'none' as const,
   }));
 
-  // Animated styles for the menu container
+  // Menu container simple fade
   const menuContainerStyle = useAnimatedStyle(() => ({
     opacity: menuOpen.value,
-    transform: [
-      { translateY: interpolate(menuOpen.value, [0, 1], [30, 0]) },
-      { scale: interpolate(menuOpen.value, [0, 1], [0.9, 1]) },
-    ],
     pointerEvents: menuOpen.value > 0.5 ? 'auto' as const : 'none' as const,
-  }));
-
-  // Staggered animations for each button
-  const scanButtonStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(menuOpen.value, [0.2, 0.7], [0, 1]),
-    transform: [
-      { translateY: interpolate(menuOpen.value, [0.2, 0.7], [20, 0]) },
-    ],
-  }));
-
-  const searchButtonStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(menuOpen.value, [0.35, 0.85], [0, 1]),
-    transform: [
-      { translateY: interpolate(menuOpen.value, [0.35, 0.85], [20, 0]) },
-    ],
   }));
 
   return (
     <>
-      {/* Backdrop - covers the whole screen when menu is open */}
+      {/* Backdrop */}
       <Animated.View
         style={[
           {
@@ -150,65 +130,60 @@ export function BottomTabBar() {
         <Pressable onPress={closeMenu} style={{ flex: 1 }} />
       </Animated.View>
 
-      {/* Floating action buttons - positioned above the tab bar */}
+      {/* Action buttons — centered, nearly full-width */}
       <Animated.View
         style={[
           {
             position: 'absolute',
-            bottom: insets.bottom + 80,
-            right: 16,
+            bottom: insets.bottom + 84,
+            left: 20,
+            right: 20,
             zIndex: 50,
           },
           menuContainerStyle,
         ]}>
         <View className="flex-row" style={{ gap: 12 }}>
-          {/* Scan Product Button */}
-          <Animated.View style={scanButtonStyle}>
-            <TouchableOpacity
-              onPress={handleScanProduct}
-              activeOpacity={0.85}
-              className="bg-white rounded-2xl items-center justify-center"
-              style={{
-                width: 140,
-                height: 120,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.15,
-                shadowRadius: 12,
-                elevation: 6,
-              }}>
-              <View className="w-14 h-14 rounded-full bg-gray-100 items-center justify-center mb-2.5">
-                <Ionicons name="camera-outline" size={28} color="#000" />
-              </View>
-              <Text className="text-[14px] font-inter-semibold text-foreground">
-                Scan Product
-              </Text>
-            </TouchableOpacity>
-          </Animated.View>
+          {/* Scan Product */}
+          <TouchableOpacity
+            onPress={handleScanProduct}
+            activeOpacity={0.85}
+            className="flex-1 bg-white rounded-2xl items-center justify-center"
+            style={{
+              height: 120,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.12,
+              shadowRadius: 12,
+              elevation: 6,
+            }}>
+            <View className="w-14 h-14 rounded-full bg-gray-100 items-center justify-center mb-2.5">
+              <Ionicons name="camera-outline" size={28} color="#000" />
+            </View>
+            <Text className="text-[14px] font-inter-semibold text-foreground">
+              Scan Product
+            </Text>
+          </TouchableOpacity>
 
-          {/* Search Products Button */}
-          <Animated.View style={searchButtonStyle}>
-            <TouchableOpacity
-              onPress={handleSearchProducts}
-              activeOpacity={0.85}
-              className="bg-white rounded-2xl items-center justify-center"
-              style={{
-                width: 140,
-                height: 120,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.15,
-                shadowRadius: 12,
-                elevation: 6,
-              }}>
-              <View className="w-14 h-14 rounded-full bg-gray-100 items-center justify-center mb-2.5">
-                <Ionicons name="search-outline" size={28} color="#000" />
-              </View>
-              <Text className="text-[14px] font-inter-semibold text-foreground">
-                Search Products
-              </Text>
-            </TouchableOpacity>
-          </Animated.View>
+          {/* Search Products */}
+          <TouchableOpacity
+            onPress={handleSearchProducts}
+            activeOpacity={0.85}
+            className="flex-1 bg-white rounded-2xl items-center justify-center"
+            style={{
+              height: 120,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.12,
+              shadowRadius: 12,
+              elevation: 6,
+            }}>
+            <View className="w-14 h-14 rounded-full bg-gray-100 items-center justify-center mb-2.5">
+              <Ionicons name="search-outline" size={28} color="#000" />
+            </View>
+            <Text className="text-[14px] font-inter-semibold text-foreground">
+              Search Products
+            </Text>
+          </TouchableOpacity>
         </View>
       </Animated.View>
 
@@ -216,7 +191,6 @@ export function BottomTabBar() {
       <View
         className="absolute bottom-0 left-0 right-0 flex-row items-center justify-center px-4"
         style={{ paddingBottom: insets.bottom + 8, zIndex: 45 }}>
-        {/* Pill-shaped tab container */}
         <View
           className="flex-1 flex-row items-center justify-around rounded-full"
           style={{
@@ -230,7 +204,6 @@ export function BottomTabBar() {
           }}>
           {tabs.map((tab) => {
             const active = isActive(tab.route);
-            
             return (
               <TouchableOpacity
                 key={tab.name}

@@ -1144,7 +1144,7 @@ export interface AgentSearchCallbacks {
     description: string;
     products: unknown[];
   }) => void;
-  onSummary?: (data: { content: string; suggestedQuestions: string[] }) => void;
+  onSummary?: (data: Record<string, unknown>) => void;
   onDone?: (data: {
     conversationId: string;
     messageId: string;

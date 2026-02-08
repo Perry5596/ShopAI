@@ -41,6 +41,10 @@ function StarRating({ rating, size = 10 }: { rating: number; size?: number }) {
 
 interface SearchProductCardProps {
   product: SearchProduct;
+  /** Whether this product is the AI recommended pick for its category */
+  isRecommended?: boolean;
+  /** Short reason why it's recommended */
+  recommendReason?: string;
   onLinkClick?: () => void;
 }
 
@@ -48,9 +52,9 @@ const CARD_WIDTH = 160;
 
 /**
  * Compact product card for horizontal carousel display.
- * Tap opens the affiliate URL.
+ * Shows an "AI Pick" badge when recommended.
  */
-export function SearchProductCard({ product, onLinkClick }: SearchProductCardProps) {
+export function SearchProductCard({ product, isRecommended, recommendReason, onLinkClick }: SearchProductCardProps) {
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onLinkClick?.();
@@ -64,7 +68,19 @@ export function SearchProductCard({ product, onLinkClick }: SearchProductCardPro
       onPress={handlePress}
       activeOpacity={0.7}
       style={{ width: CARD_WIDTH }}
-      className="bg-card rounded-2xl overflow-hidden border border-border-light mr-3">
+      className={`bg-card rounded-2xl overflow-hidden mr-3 ${
+        isRecommended ? 'border-2 border-amber-400' : 'border border-border-light'
+      }`}>
+      {/* AI Pick badge */}
+      {isRecommended && (
+        <View className="bg-amber-400 px-2.5 py-1 flex-row items-center justify-center">
+          <Ionicons name="sparkles" size={10} color="#000" />
+          <Text className="text-[10px] font-inter-semibold text-black ml-1">
+            AI Pick
+          </Text>
+        </View>
+      )}
+
       {/* Product Image */}
       <View className="w-full aspect-square bg-white items-center justify-center">
         {product.imageUrl ? (

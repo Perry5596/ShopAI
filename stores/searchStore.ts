@@ -5,6 +5,7 @@ import type {
   Message,
   SearchCategory,
   SearchProduct,
+  ProductRecommendation,
   AgentSearchResponse,
   Identity,
 } from '@/types';
@@ -208,8 +209,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
             });
           },
 
-          onSummary: (data) => {
-            // Update the streaming assistant message with content and suggestions
+          onSummary: (data: Record<string, unknown>) => {
             set((state) => {
               if (!state.activeConversation) return state;
 
@@ -217,8 +217,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
                 if (msg.id.startsWith('streaming-')) {
                   return {
                     ...msg,
-                    content: data.content,
-                    suggestedQuestions: data.suggestedQuestions,
+                    content: (data.content as string) || '',
+                    recommendations: (data.recommendations as ProductRecommendation[]) || [],
+                    followUpQuestion: (data.followUpQuestion as string) || null,
+                    followUpOptions: (data.followUpOptions as string[]) || [],
                   };
                 }
                 return msg;
@@ -229,7 +231,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
                   ...state.activeConversation,
                   messages,
                 },
-                suggestedQuestions: data.suggestedQuestions || [],
+                suggestedQuestions: [], // deprecated
                 streamStatus: null,
               };
             });
@@ -378,7 +380,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
             });
           },
 
-          onSummary: (data) => {
+          onSummary: (data: Record<string, unknown>) => {
             set((state) => {
               if (!state.activeConversation) return state;
 
@@ -386,8 +388,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
                 if (msg.id.startsWith('streaming-followup-')) {
                   return {
                     ...msg,
-                    content: data.content,
-                    suggestedQuestions: data.suggestedQuestions,
+                    content: (data.content as string) || '',
+                    recommendations: (data.recommendations as ProductRecommendation[]) || [],
+                    followUpQuestion: (data.followUpQuestion as string) || null,
+                    followUpOptions: (data.followUpOptions as string[]) || [],
                   };
                 }
                 return msg;
@@ -398,7 +402,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
                   ...state.activeConversation,
                   messages,
                 },
-                suggestedQuestions: data.suggestedQuestions || [],
+                suggestedQuestions: [],
                 streamStatus: null,
               };
             });

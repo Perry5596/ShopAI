@@ -1,65 +1,59 @@
 import { useEffect, useRef } from 'react';
 import { View, Text, Animated } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 interface TypingIndicatorProps {
-  /** Optional status text to display (e.g., "Searching 4 categories...") */
+  /** Status text from the streaming agent (e.g., "Searching 3 categories...") */
   statusText?: string | null;
 }
 
 /**
- * Animated typing indicator (3 bouncing dots) shown while the AI is thinking.
- * Optionally displays a status text from the streaming agent.
+ * Clean status indicator shown while the AI is working.
+ * Displays a pulsing sparkle icon with the current status text.
+ * No speech bubble — just centered, clean text with a subtle animation.
  */
 export function TypingIndicator({ statusText }: TypingIndicatorProps) {
-  const dot1 = useRef(new Animated.Value(0)).current;
-  const dot2 = useRef(new Animated.Value(0)).current;
-  const dot3 = useRef(new Animated.Value(0)).current;
+  const pulse = useRef(new Animated.Value(0.4)).current;
 
   useEffect(() => {
-    const createBounce = (dot: Animated.Value, delay: number) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(delay),
-          Animated.timing(dot, {
-            toValue: -6,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-          Animated.timing(dot, {
-            toValue: 0,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-        ])
-      );
-
-    const animation = Animated.parallel([
-      createBounce(dot1, 0),
-      createBounce(dot2, 150),
-      createBounce(dot3, 300),
-    ]);
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 0.4,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    );
 
     animation.start();
-
     return () => animation.stop();
-  }, [dot1, dot2, dot3]);
+  }, [pulse]);
 
   return (
-    <View className="flex-row items-center self-start ml-4 mb-3">
-      <View className="flex-row items-center bg-background-secondary rounded-2xl rounded-bl-sm px-4 py-3">
-        {[dot1, dot2, dot3].map((dot, index) => (
-          <Animated.View
-            key={index}
-            style={{ transform: [{ translateY: dot }] }}
-            className={`w-2 h-2 rounded-full bg-foreground-muted ${index < 2 ? 'mr-1.5' : ''}`}
-          />
-        ))}
+    <View className="items-center py-6 px-4">
+      {/* Pulsing icon row */}
+      <View className="flex-row items-center justify-center mb-2">
+        <Animated.View style={{ opacity: pulse }}>
+          <View className="flex-row items-center">
+            <Ionicons name="sparkles" size={18} color="#6B7280" />
+            <View className="mx-2.5 w-1 h-1 rounded-full bg-gray-300" />
+            <Ionicons name="bag-outline" size={16} color="#9CA3AF" />
+            <View className="mx-2.5 w-1 h-1 rounded-full bg-gray-300" />
+            <Ionicons name="search" size={16} color="#9CA3AF" />
+          </View>
+        </Animated.View>
       </View>
-      {statusText ? (
-        <Text className="text-[13px] font-inter text-foreground-muted ml-2.5">
-          {statusText}
-        </Text>
-      ) : null}
+
+      {/* Status text */}
+      <Text className="text-[14px] font-inter-medium text-foreground-muted text-center">
+        {statusText || 'Thinking...'}
+      </Text>
     </View>
   );
 }

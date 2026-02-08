@@ -1,12 +1,12 @@
 import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CategorySection } from './CategorySection';
-import { SuggestedQuestions } from './SuggestedQuestions';
+import { FollowUpQuestion } from './SuggestedQuestions';
 import type { Message } from '@/types';
 
 interface MessageBubbleProps {
   message: Message;
-  onSuggestedQuestion?: (question: string) => void;
+  onFollowUpAnswer?: (answer: string) => void;
   isLastAssistant?: boolean;
   isSearching?: boolean;
   onLinkClick?: () => void;
@@ -14,14 +14,11 @@ interface MessageBubbleProps {
 
 /**
  * Renders a single message bubble. User messages are right-aligned,
- * assistant messages are left-aligned with categories and suggestions.
- *
- * During streaming, the assistant message may initially have no content
- * but categories will appear progressively. The summary text arrives last.
+ * assistant messages are left-aligned with categories and follow-up.
  */
 export function MessageBubble({
   message,
-  onSuggestedQuestion,
+  onFollowUpAnswer,
   isLastAssistant,
   isSearching,
   onLinkClick,
@@ -42,14 +39,24 @@ export function MessageBubble({
   const hasContent = message.content && message.content.length > 0;
   const hasCategories = message.categories && message.categories.length > 0;
 
-  // Don't render anything if there's no content and no categories yet (still loading)
   if (!hasContent && !hasCategories) {
     return null;
   }
 
+  // Build a lookup of recommendations by category label
+  const recsByCategory = new Map<string, { productTitle: string; reason: string }>();
+  if (message.recommendations) {
+    for (const rec of message.recommendations) {
+      recsByCategory.set(rec.categoryLabel, {
+        productTitle: rec.productTitle,
+        reason: rec.reason,
+      });
+    }
+  }
+
   return (
     <View className="mb-3">
-      {/* AI Avatar + Text (only show when there's content) */}
+      {/* AI Avatar + Summary text */}
       {hasContent && (
         <View className="flex-row items-start px-4 mb-3">
           <View className="w-7 h-7 rounded-full bg-background-secondary items-center justify-center mr-2 mt-0.5">
@@ -70,18 +77,20 @@ export function MessageBubble({
             <CategorySection
               key={category.id}
               category={category}
+              recommendation={recsByCategory.get(category.label)}
               onLinkClick={onLinkClick}
             />
           ))}
         </View>
       )}
 
-      {/* Suggested follow-up questions (only on last assistant message, and not while searching) */}
-      {isLastAssistant && !isSearching && message.suggestedQuestions && message.suggestedQuestions.length > 0 && onSuggestedQuestion && (
+      {/* Follow-up question with tappable options (only on last assistant, not while searching) */}
+      {isLastAssistant && !isSearching && message.followUpQuestion && message.followUpOptions && message.followUpOptions.length > 0 && onFollowUpAnswer && (
         <View className="mt-2">
-          <SuggestedQuestions
-            questions={message.suggestedQuestions}
-            onSelect={onSuggestedQuestion}
+          <FollowUpQuestion
+            question={message.followUpQuestion}
+            options={message.followUpOptions}
+            onSelect={onFollowUpAnswer}
           />
         </View>
       )}
