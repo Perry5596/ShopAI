@@ -1006,6 +1006,7 @@ function dbConversationToConversation(
     userId: dbConversation.user_id,
     title: dbConversation.title,
     status: dbConversation.status,
+    isFavorite: dbConversation.is_favorite ?? false,
     messages,
     thumbnailUrl: dbConversation.thumbnail_url ?? null,
     totalCategories: dbConversation.total_categories ?? 0,
@@ -1135,6 +1136,30 @@ export const conversationService = {
       .eq('id', conversationId);
 
     if (error) throw error;
+  },
+
+  /**
+   * Toggle the is_favorite flag on a conversation.
+   * Returns the new favorite state.
+   */
+  async toggleFavorite(conversationId: string): Promise<boolean> {
+    const { data: current, error: readError } = await supabase
+      .from('conversations')
+      .select('is_favorite')
+      .eq('id', conversationId)
+      .single();
+
+    if (readError) throw readError;
+
+    const newValue = !(current as { is_favorite: boolean }).is_favorite;
+
+    const { error: updateError } = await supabase
+      .from('conversations')
+      .update({ is_favorite: newValue })
+      .eq('id', conversationId);
+
+    if (updateError) throw updateError;
+    return newValue;
   },
 };
 

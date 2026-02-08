@@ -241,7 +241,7 @@ interface ConversationItemProps {
 
 function ConversationItem({ conversation }: ConversationItemProps) {
   const { user } = useAuth();
-  const { loadConversation, deleteConversation } = useSearchStore();
+  const { loadConversation, deleteConversation, toggleConversationFavorite } = useSearchStore();
 
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -255,6 +255,17 @@ function ConversationItem({ conversation }: ConversationItemProps) {
       'Options',
       '',
       [
+        {
+          text: conversation.isFavorite ? 'Remove from Favorites' : 'Add to Favorites',
+          onPress: async () => {
+            try {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              await toggleConversationFavorite(conversation.id);
+            } catch (error) {
+              Alert.alert('Error', 'Failed to update favorite status');
+            }
+          },
+        },
         {
           text: 'Delete Search',
           style: 'destructive',
@@ -322,7 +333,7 @@ function ConversationItem({ conversation }: ConversationItemProps) {
         elevation: 4,
       }}>
       {/* Thumbnail */}
-      <View className="w-28 h-28 bg-background-secondary items-center justify-center">
+      <View className="w-28 h-28 bg-background-secondary items-center justify-center relative">
         {thumbnailUrl ? (
           <Image
             source={{ uri: thumbnailUrl }}
@@ -332,6 +343,11 @@ function ConversationItem({ conversation }: ConversationItemProps) {
         ) : (
           <View className="w-14 h-14 rounded-full bg-gray-200 items-center justify-center">
             <Ionicons name="search" size={28} color="#6B7280" />
+          </View>
+        )}
+        {conversation.isFavorite && (
+          <View className="absolute top-1.5 right-1.5 bg-black/30 rounded-full p-1">
+            <Ionicons name="star" size={14} color="#FFD700" />
           </View>
         )}
       </View>

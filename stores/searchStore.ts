@@ -92,6 +92,8 @@ interface SearchState {
   activeConversation: Conversation | null;
   /** Loading state during agent processing */
   isSearching: boolean;
+  /** Loading state while fetching an existing conversation from DB */
+  isLoadingConversation: boolean;
   /** Status text from the streaming agent (e.g., "Analyzing your query...") */
   streamStatus: string | null;
   /** Current follow-up suggestions */
@@ -111,6 +113,7 @@ interface SearchState {
   fetchConversations: (userId: string) => Promise<void>;
   loadConversation: (conversationId: string) => Promise<void>;
   deleteConversation: (conversationId: string) => Promise<void>;
+  toggleConversationFavorite: (conversationId: string) => Promise<void>;
   clearActiveConversation: () => void;
   reset: () => void;
 }
@@ -123,6 +126,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   conversations: [],
   activeConversation: null,
   isSearching: false,
+  isLoadingConversation: false,
   streamStatus: null,
   suggestedQuestions: [],
   error: null,
@@ -158,6 +162,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           userId: identity.id,
           title: query.substring(0, 100),
           status: 'active',
+          isFavorite: false,
           messages: [optimisticUserMessage, streamingAssistantMessage],
           thumbnailUrl: null,
           totalCategories: 0,
@@ -526,6 +531,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   },
 
   loadConversation: async (conversationId: string) => {
+    set({ isLoadingConversation: true });
     try {
       const conversation = await conversationService.getConversationById(conversationId);
       if (conversation) {
@@ -534,10 +540,13 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           .find((m) => m.role === 'assistant');
         const suggestedQuestions = lastAssistantMsg?.suggestedQuestions || [];
 
-        set({ activeConversation: conversation, suggestedQuestions });
+        set({ activeConversation: conversation, suggestedQuestions, isLoadingConversation: false });
+      } else {
+        set({ isLoadingConversation: false });
       }
     } catch (error) {
       console.error('Failed to load conversation:', error);
+      set({ isLoadingConversation: false });
     }
   },
 
@@ -556,8 +565,37 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     }
   },
 
+  toggleConversationFavorite: async (conversationId: string) => {
+    // Optimistic toggle
+    set((state) => ({
+      conversations: state.conversations.map((c) =>
+        c.id === conversationId ? { ...c, isFavorite: !c.isFavorite } : c
+      ),
+      activeConversation:
+        state.activeConversation?.id === conversationId
+          ? { ...state.activeConversation, isFavorite: !state.activeConversation.isFavorite }
+          : state.activeConversation,
+    }));
+
+    try {
+      await conversationService.toggleFavorite(conversationId);
+    } catch (error) {
+      console.error('Failed to toggle conversation favorite:', error);
+      // Revert on failure
+      set((state) => ({
+        conversations: state.conversations.map((c) =>
+          c.id === conversationId ? { ...c, isFavorite: !c.isFavorite } : c
+        ),
+        activeConversation:
+          state.activeConversation?.id === conversationId
+            ? { ...state.activeConversation, isFavorite: !state.activeConversation.isFavorite }
+            : state.activeConversation,
+      }));
+    }
+  },
+
   clearActiveConversation: () => {
-    set({ activeConversation: null, suggestedQuestions: [], error: null, streamStatus: null });
+    set({ activeConversation: null, suggestedQuestions: [], error: null, streamStatus: null, isLoadingConversation: false });
   },
 
   reset: () => {
@@ -565,6 +603,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       conversations: [],
       activeConversation: null,
       isSearching: false,
+      isLoadingConversation: false,
       streamStatus: null,
       suggestedQuestions: [],
       error: null,

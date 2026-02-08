@@ -39,9 +39,10 @@ import { executeToolCalls, type ToolResult } from './tools.ts';
 // Configuration
 // ============================================================================
 
-const RATE_LIMIT_AUTHENTICATED = 20;
-const RATE_LIMIT_ANONYMOUS = 5;
-const RATE_LIMIT_WINDOW_SECONDS = 7 * 24 * 60 * 60;
+// Rate limits match the scan (analyze-product) function — shared pool
+const RATE_LIMIT_AUTHENTICATED = 14; // 14 total (scans + searches) per week
+const RATE_LIMIT_ANONYMOUS = 3;      // 3 total per week for guests
+const RATE_LIMIT_WINDOW_SECONDS = 7 * 24 * 60 * 60; // 7 days
 const MAX_AGENT_LOOPS = 3;
 
 // ============================================================================
@@ -391,10 +392,11 @@ serve(async (req) => {
   // =========================================================================
   // Step 2: Rate limit
   // =========================================================================
+  // Use the same rate limit subject as scans (auth.subject without prefix)
+  // so scans and text searches share a single weekly allowance.
   const rateLimit = auth.type === 'user' ? RATE_LIMIT_AUTHENTICATED : RATE_LIMIT_ANONYMOUS;
-  const rateLimitSubject = `textsearch:${auth.subject}`;
   const rateLimitResult = await checkRateLimit(
-    rateLimitSubject,
+    auth.subject,
     rateLimit,
     RATE_LIMIT_WINDOW_SECONDS
   );
@@ -598,10 +600,11 @@ serve(async (req) => {
 
       // Track analytics + increment profile lifetime stats
       if (auth.type === 'user') {
+        // Track as 'text_search' in analytics (separate from scan_count)
         try {
           await supabase.rpc('increment_analytics', {
             p_user_id: auth.id,
-            p_event_type: 'scan',
+            p_event_type: 'text_search',
           });
         } catch (analyticsError) {
           console.error('Failed to track search analytics:', analyticsError);

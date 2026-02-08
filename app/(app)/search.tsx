@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { View, FlatList, Alert, TouchableOpacity, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import { View, FlatList, Alert, TouchableOpacity, NativeSyntheticEvent, NativeScrollEvent, ActivityIndicator, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSearchStore } from '@/stores/searchStore';
@@ -21,6 +21,7 @@ export default function SearchScreen() {
   const {
     activeConversation,
     isSearching,
+    isLoadingConversation,
     streamStatus,
     error,
     startSearch,
@@ -132,7 +133,14 @@ export default function SearchScreen() {
     <View className="flex-1 bg-background">
       <SearchHeader title={conversationTitle} />
 
-      {messages.length === 0 && !isSearching ? (
+      {isLoadingConversation ? (
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="small" color="#6B7280" />
+          <Text className="text-[13px] font-inter text-foreground-muted mt-3">
+            Loading conversation...
+          </Text>
+        </View>
+      ) : messages.length === 0 && !isSearching ? (
         <EmptySearch onSuggestionPress={handleSend} />
       ) : (
         <View className="flex-1">

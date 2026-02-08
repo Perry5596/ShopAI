@@ -293,6 +293,7 @@ export interface Conversation {
   userId: string;
   title: string | null;
   status: ConversationStatus;
+  isFavorite: boolean;
   messages: Message[];
   /** Cached thumbnail URL (AI pick from first category) for list views */
   thumbnailUrl: string | null;
@@ -412,6 +413,7 @@ export interface DbConversation {
   user_id: string;
   title: string | null;
   status: ConversationStatus;
+  is_favorite: boolean;
   thumbnail_url: string | null;
   total_categories: number;
   total_products: number;
