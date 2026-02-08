@@ -251,7 +251,8 @@ async function runStreamingAgentLoop(
   authHeader: string,
   supabase: ReturnType<typeof createClient>,
   conversationId: string,
-  messageId: string
+  messageId: string,
+  country?: string
 ): Promise<{
   summary: string;
   recommendations: Array<{ categoryLabel: string; productTitle: string; reason: string }>;
@@ -290,7 +291,8 @@ async function runStreamingAgentLoop(
       const toolResults = await executeToolCalls(
         assistantMessage.tool_calls,
         supabaseUrl,
-        authHeader
+        authHeader,
+        country
       );
 
       // Stream each completed category immediately
@@ -449,6 +451,21 @@ serve(async (req) => {
     try {
       const { client: supabase, url: supabaseUrl } = getSupabaseAdmin();
 
+      // Look up the user's country from their profile for location-aware results
+      let userCountry: string | undefined;
+      if (auth.type === 'user') {
+        try {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('country')
+            .eq('id', auth.id)
+            .single();
+          userCountry = profileData?.country || undefined;
+        } catch (profileError) {
+          console.error('Failed to load user country:', profileError);
+        }
+      }
+
       // Create or load conversation
       let conversationId = existingConversationId as string | undefined;
       let conversationHistory: Array<{ role: string; content: string }> = [];
@@ -500,7 +517,8 @@ serve(async (req) => {
         authHeader,
         supabase,
         conversationId,
-        messageId
+        messageId,
+        userCountry
       );
 
       // Update the assistant message with final content

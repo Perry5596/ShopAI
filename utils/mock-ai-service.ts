@@ -46,6 +46,7 @@ export class AuthRequiredError extends Error {
  * @param imageUrl - The URL of the image to analyze (must be publicly accessible)
  * @param identity - The user's identity (authenticated or anonymous)
  * @param additionalContext - Optional additional context from the user to help identify the product
+ * @param country - ISO 3166-1 alpha-2 country code (e.g., 'US', 'GB') for location-aware results
  * @returns ScanResponse with title, description, products, and rate limit info
  *
  * @example
@@ -57,7 +58,8 @@ export class AuthRequiredError extends Error {
 export async function analyzeImage(
   imageUrl: string,
   identity: Identity,
-  additionalContext?: string
+  additionalContext?: string,
+  country?: string
 ): Promise<ScanResponse> {
   console.log('Calling analyze-product edge function with imageUrl:', imageUrl, 'identity type:', identity.type);
 
@@ -69,7 +71,7 @@ export async function analyzeImage(
   // Note: For authenticated users, supabase.functions.invoke automatically includes Authorization header
 
   const { data, error } = await supabase.functions.invoke('analyze-product', {
-    body: { imageUrl, additionalContext },
+    body: { imageUrl, additionalContext, ...(country && { country }) },
     headers,
   });
 

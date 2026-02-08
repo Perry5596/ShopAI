@@ -15,7 +15,9 @@ const RATE_LIMIT_AUTHENTICATED = 14; // 14 scans per week for signed-in users
 const RATE_LIMIT_ANONYMOUS = 3; // 3 scans per week for guests
 const RATE_LIMIT_WINDOW_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
-const RETAILER_DOMAINS = ['amazon.com', 'ebay.com', 'target.com', 'bestbuy.com', 'walmart.com'];
+// Base retailer domains — Amazon is matched broadly to support international domains
+// (e.g., amazon.co.uk, amazon.de, amazon.ca, etc.)
+const RETAILER_DOMAINS = ['amazon', 'ebay.com', 'target.com', 'bestbuy.com', 'walmart.com'];
 
 // Interfaces
 interface VisualMatch {
@@ -67,17 +69,19 @@ interface SnapResult {
  * @param imageUrl - The URL of the image to analyze
  * @param apiKey - SerpAPI API key
  * @param additionalContext - Optional additional context from user to refine search
+ * @param country - ISO 3166-1 alpha-2 country code (e.g., 'US', 'GB', 'DE'). Defaults to 'us'.
  */
 async function searchGoogleLens(
   imageUrl: string,
   apiKey: string,
-  additionalContext?: string
+  additionalContext?: string,
+  country?: string
 ): Promise<VisualMatch[]> {
   const url = new URL('https://serpapi.com/search');
   url.searchParams.set('engine', 'google_lens');
   url.searchParams.set('url', imageUrl);
   url.searchParams.set('api_key', apiKey);
-  url.searchParams.set('country', 'us'); // TODO: Make this configurable by the user's actual location
+  url.searchParams.set('country', (country || 'us').toLowerCase());
   url.searchParams.set('json_restrictor', 'visual_matches'); // Only return the visual matches for faster API response time
   
   // Additional query context when user is refining results (fix issue feature)
@@ -243,7 +247,7 @@ serve(async (req) => {
     // =========================================================================
     // Step 3: Parse request body
     // =========================================================================
-    const { imageUrl, additionalContext } = await req.json();
+    const { imageUrl, additionalContext, country } = await req.json();
 
     if (!imageUrl) {
       return errorResponse('imageUrl is required', 400);
@@ -260,7 +264,7 @@ serve(async (req) => {
     // =========================================================================
     let visualMatches: VisualMatch[] = [];
     try {
-      visualMatches = await searchGoogleLens(imageUrl, serpApiKey, additionalContext);
+      visualMatches = await searchGoogleLens(imageUrl, serpApiKey, additionalContext, country);
     } catch (error) {
       console.error('Google Lens search failed:', error);
       return jsonResponse({

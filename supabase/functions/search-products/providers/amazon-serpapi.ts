@@ -50,6 +50,76 @@ interface SerpApiOrganicResult {
 }
 
 // ============================================================================
+// Country → Amazon Domain & Language Mapping
+// ============================================================================
+
+/**
+ * Maps ISO 3166-1 alpha-2 country codes to Amazon marketplace domains.
+ * Countries not listed fall back to 'amazon.com'.
+ */
+const COUNTRY_TO_AMAZON_DOMAIN: Record<string, string> = {
+  US: 'amazon.com',
+  CA: 'amazon.ca',
+  GB: 'amazon.co.uk',
+  DE: 'amazon.de',
+  FR: 'amazon.fr',
+  ES: 'amazon.es',
+  IT: 'amazon.it',
+  NL: 'amazon.nl',
+  SE: 'amazon.se',
+  PL: 'amazon.pl',
+  BE: 'amazon.com.be',
+  AU: 'amazon.com.au',
+  JP: 'amazon.co.jp',
+  IN: 'amazon.in',
+  SG: 'amazon.sg',
+  AE: 'amazon.ae',
+  SA: 'amazon.sa',
+  TR: 'amazon.com.tr',
+  BR: 'amazon.com.br',
+  MX: 'amazon.com.mx',
+  EG: 'amazon.eg',
+};
+
+/**
+ * Maps ISO 3166-1 alpha-2 country codes to SerpAPI language codes.
+ * Countries not listed fall back to 'en_US'.
+ */
+const COUNTRY_TO_LANGUAGE: Record<string, string> = {
+  US: 'en_US',
+  CA: 'en_CA',
+  GB: 'en_GB',
+  DE: 'de_DE',
+  FR: 'fr_FR',
+  ES: 'es_ES',
+  IT: 'it_IT',
+  NL: 'nl_NL',
+  SE: 'sv_SE',
+  PL: 'pl_PL',
+  BE: 'nl_BE',
+  AU: 'en_AU',
+  JP: 'ja_JP',
+  IN: 'en_IN',
+  SG: 'en_SG',
+  AE: 'en_AE',
+  SA: 'ar_SA',
+  TR: 'tr_TR',
+  BR: 'pt_BR',
+  MX: 'es_MX',
+  EG: 'ar_EG',
+};
+
+function getAmazonDomain(country?: string): string {
+  if (!country) return 'amazon.com';
+  return COUNTRY_TO_AMAZON_DOMAIN[country.toUpperCase()] || 'amazon.com';
+}
+
+function getAmazonLanguage(country?: string): string {
+  if (!country) return 'en_US';
+  return COUNTRY_TO_LANGUAGE[country.toUpperCase()] || 'en_US';
+}
+
+// ============================================================================
 // Helpers
 // ============================================================================
 
@@ -73,11 +143,13 @@ function mapSortBy(sortBy?: string): string | undefined {
 /**
  * Build an affiliate URL from the ASIN and partner tag.
  * Prefer the clean link from SerpAPI if available.
+ * Uses the correct Amazon domain for the user's country.
  */
 function buildAffiliateUrl(
   asin: string,
   linkClean: string | undefined,
-  partnerTag: string
+  partnerTag: string,
+  amazonDomain: string = 'amazon.com'
 ): string {
   if (linkClean) {
     try {
@@ -88,7 +160,7 @@ function buildAffiliateUrl(
       // Fall through
     }
   }
-  return `https://www.amazon.com/dp/${asin}?tag=${partnerTag}`;
+  return `https://www.${amazonDomain}/dp/${asin}?tag=${partnerTag}`;
 }
 
 /**
@@ -96,7 +168,8 @@ function buildAffiliateUrl(
  */
 function normalizeResult(
   item: SerpApiOrganicResult,
-  partnerTag: string
+  partnerTag: string,
+  amazonDomain: string = 'amazon.com'
 ): SearchProduct | null {
   if (!item.asin) return null;
 
@@ -110,7 +183,7 @@ function normalizeResult(
     price: item.price || (item.extracted_price != null ? `$${item.extracted_price.toFixed(2)}` : null),
     priceCents,
     imageUrl: item.thumbnail || null,
-    affiliateUrl: buildAffiliateUrl(item.asin, item.link_clean, partnerTag),
+    affiliateUrl: buildAffiliateUrl(item.asin, item.link_clean, partnerTag, amazonDomain),
     source: 'Amazon',
     asin: item.asin,
     rating: item.rating ?? null,
@@ -140,12 +213,16 @@ export class AmazonSerpApiProvider implements SearchProvider {
   }
 
   async search(request: ProductSearchRequest): Promise<ProductSearchResponse> {
+    // Resolve Amazon domain and language from the user's country
+    const amazonDomain = getAmazonDomain(request.country);
+    const amazonLanguage = getAmazonLanguage(request.country);
+
     // Build SerpAPI query parameters
     const params = new URLSearchParams();
     params.set('engine', 'amazon');
     params.set('k', request.query);
-    params.set('amazon_domain', 'amazon.com');
-    params.set('language', 'en_US');
+    params.set('amazon_domain', amazonDomain);
+    params.set('language', amazonLanguage);
     params.set('api_key', this.apiKey);
 
     // Only return organic results for a smaller, faster response
@@ -176,7 +253,7 @@ export class AmazonSerpApiProvider implements SearchProvider {
     // Normalize results, skip sponsored items for cleaner results
     let products: SearchProduct[] = (data.organic_results || [])
       .filter((item) => !item.sponsored)
-      .map((item) => normalizeResult(item, this.partnerTag))
+      .map((item) => normalizeResult(item, this.partnerTag, amazonDomain))
       .filter((p): p is SearchProduct => p !== null);
 
     // Client-side price filtering (SerpAPI doesn't support min/max natively)

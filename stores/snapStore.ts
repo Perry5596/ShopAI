@@ -116,7 +116,7 @@ export const useSnapStore = create<SnapState>((set, get) => ({
       set({ isUploading: false, isProcessing: true });
 
       // Step 5: Process image in background (don't await - let it run async)
-      processImageInBackground(shopId, userId, imageUrl, identity);
+      processImageInBackground(shopId, userId, imageUrl, identity, userProfile?.country);
 
       set({ isCapturing: false, isProcessing: false });
 
@@ -242,14 +242,15 @@ async function processImageInBackground(
   shopId: string,
   userId: string,
   imageUrl: string,
-  identity: Identity
+  identity: Identity,
+  country?: string
 ): Promise<void> {
   const shopStore = useShopStore.getState();
   const snapStore = useSnapStore.getState();
 
   try {
-    // Call the AI service
-    const result = await analyzeImage(imageUrl, identity);
+    // Call the AI service with the user's country for location-aware results
+    const result = await analyzeImage(imageUrl, identity, undefined, country);
 
     // Store rate limit info
     if (result.rateLimit) {

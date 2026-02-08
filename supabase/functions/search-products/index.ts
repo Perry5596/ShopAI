@@ -81,7 +81,7 @@ serve(async (req) => {
     // Step 2: Parse and validate request body
     // =========================================================================
     const body = await req.json();
-    const { query, categoryLabel, source, filters } = body as ProductSearchRequest;
+    const { query, categoryLabel, source, filters, country } = body as ProductSearchRequest & { country?: string };
 
     if (!query || typeof query !== 'string') {
       return errorResponse('query is required and must be a string', 400);
@@ -102,6 +102,7 @@ serve(async (req) => {
       categoryLabel,
       source: searchSource,
       filters,
+      country: country || undefined,
     };
 
     const result = await provider.search(request);

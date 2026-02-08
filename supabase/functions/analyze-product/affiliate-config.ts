@@ -49,6 +49,16 @@ export function appendAffiliateTag(url: string): string {
       }
     }
 
+    // Handle international Amazon domains (amazon.co.uk, amazon.de, etc.)
+    // that aren't explicitly in the affiliate tags map
+    if (hostname.includes('amazon')) {
+      const amazonConfig = AFFILIATE_TAGS['amazon.com'];
+      if (amazonConfig && !urlObj.searchParams.has(amazonConfig.param)) {
+        urlObj.searchParams.set(amazonConfig.param, amazonConfig.tag);
+      }
+      return urlObj.toString();
+    }
+
     // No matching affiliate program, return original URL
     return url;
   } catch {
@@ -68,7 +78,7 @@ export function getRetailerName(url: string): string {
     const urlObj = new URL(url);
     const hostname = urlObj.hostname.toLowerCase();
 
-    if (hostname.includes('amazon.com')) return 'Amazon';
+    if (hostname.includes('amazon')) return 'Amazon';
     if (hostname.includes('target.com')) return 'Target';
     if (hostname.includes('bestbuy.com')) return 'Best Buy';
     if (hostname.includes('walmart.com')) return 'Walmart';

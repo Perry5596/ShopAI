@@ -43,14 +43,15 @@ export interface ToolResult {
 async function executeSingleTool(
   toolCall: ToolCall,
   supabaseUrl: string,
-  authHeader: string
+  authHeader: string,
+  country?: string
 ): Promise<ToolResult> {
   const { id, function: fn } = toolCall;
   const args = JSON.parse(fn.arguments);
 
   switch (fn.name) {
     case 'search_products':
-      return await executeSearchProducts(id, args, supabaseUrl, authHeader);
+      return await executeSearchProducts(id, args, supabaseUrl, authHeader, country);
     default:
       return {
         toolCallId: id,
@@ -67,7 +68,8 @@ async function executeSearchProducts(
   toolCallId: string,
   args: SearchProductsArgs,
   supabaseUrl: string,
-  authHeader: string
+  authHeader: string,
+  country?: string
 ): Promise<ToolResult> {
   try {
     const searchUrl = `${supabaseUrl}/functions/v1/search-products`;
@@ -81,6 +83,7 @@ async function executeSearchProducts(
         ...(args.maxPrice != null && { maxPrice: args.maxPrice }),
         ...(args.sortBy && { sortBy: args.sortBy }),
       },
+      ...(country && { country }),
     };
 
     const response = await fetch(searchUrl, {
@@ -156,10 +159,11 @@ async function executeSearchProducts(
 export async function executeToolCalls(
   toolCalls: ToolCall[],
   supabaseUrl: string,
-  authHeader: string
+  authHeader: string,
+  country?: string
 ): Promise<ToolResult[]> {
   const results = await Promise.all(
-    toolCalls.map((tc) => executeSingleTool(tc, supabaseUrl, authHeader))
+    toolCalls.map((tc) => executeSingleTool(tc, supabaseUrl, authHeader, country))
   );
   return results;
 }

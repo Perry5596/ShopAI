@@ -16,6 +16,8 @@ export interface ProductSearchRequest {
   source: 'amazon'; // future: | 'bestbuy' | 'walmart' | 'target' | 'ebay'
   /** Optional filters */
   filters?: SearchFilters;
+  /** ISO 3166-1 alpha-2 country code (e.g., 'US', 'GB', 'DE') for location-aware results */
+  country?: string;
 }
 
 export interface SearchFilters {
