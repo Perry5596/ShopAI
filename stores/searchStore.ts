@@ -59,6 +59,7 @@ function mapAgentResponseToMessage(
       rating: p.rating,
       reviewCount: p.review_count,
       brand: p.brand,
+      isFavorite: false,
       createdAt: p.created_at,
     })),
     createdAt: new Date().toISOString(),
@@ -70,6 +71,9 @@ function mapAgentResponseToMessage(
     role: 'assistant',
     content: response.message.content,
     categories,
+    recommendations: response.recommendations,
+    followUpQuestion: response.followUpQuestion,
+    followUpOptions: response.followUpOptions,
     suggestedQuestions: response.suggestedQuestions,
     createdAt: new Date().toISOString(),
   };
@@ -155,6 +159,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           title: query.substring(0, 100),
           status: 'active',
           messages: [optimisticUserMessage, streamingAssistantMessage],
+          thumbnailUrl: null,
+          totalCategories: 0,
+          totalProducts: 0,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
@@ -257,10 +264,33 @@ export const useSearchStore = create<SearchState>((set, get) => ({
                 return msg;
               });
 
+              // Compute summary fields for instant display on home screen
+              let totalCategories = 0;
+              let totalProducts = 0;
+              let thumbnailUrl: string | null = state.activeConversation.thumbnailUrl;
+
+              for (const msg of messages) {
+                if (msg.categories) {
+                  totalCategories += msg.categories.length;
+                  for (const cat of msg.categories) {
+                    totalProducts += cat.products?.length || 0;
+                  }
+                  // Use the first product image from the first category as thumbnail
+                  if (!thumbnailUrl && msg.categories.length > 0) {
+                    const firstCat = msg.categories[0];
+                    const withImage = firstCat.products?.find((p) => p.imageUrl);
+                    if (withImage) thumbnailUrl = withImage.imageUrl;
+                  }
+                }
+              }
+
               const conversation: Conversation = {
                 ...state.activeConversation,
                 id: data.conversationId,
                 messages,
+                thumbnailUrl,
+                totalCategories,
+                totalProducts,
                 updatedAt: new Date().toISOString(),
               };
 
@@ -424,9 +454,23 @@ export const useSearchStore = create<SearchState>((set, get) => ({
                 return msg;
               });
 
+              // Recompute summary totals
+              let totalCategories = 0;
+              let totalProducts = 0;
+              for (const msg of messages) {
+                if (msg.categories) {
+                  totalCategories += msg.categories.length;
+                  for (const cat of msg.categories) {
+                    totalProducts += cat.products?.length || 0;
+                  }
+                }
+              }
+
               const updated: Conversation = {
                 ...state.activeConversation,
                 messages,
+                totalCategories,
+                totalProducts,
                 updatedAt: new Date().toISOString(),
               };
 

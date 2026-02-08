@@ -517,6 +517,77 @@ serve(async (req) => {
         })
         .eq('id', messageId);
 
+      // ---------------------------------------------------------------
+      // Compute summary stats for the conversation
+      // ---------------------------------------------------------------
+      const totalProducts = result.allCategories.reduce(
+        (sum, cat) => sum + (cat.products as unknown[]).length,
+        0
+      );
+
+      // Find thumbnail: image of the AI-recommended product in the first
+      // category, or the first product with an image as fallback.
+      let thumbnailUrl: string | null = null;
+      const firstCat = result.allCategories[0];
+      if (firstCat) {
+        const products = firstCat.products as Array<Record<string, unknown>>;
+
+        // Try the AI recommendation first
+        if (result.recommendations && result.recommendations.length > 0) {
+          const firstRec = result.recommendations[0];
+          const needle = (firstRec.productTitle || '').toLowerCase().substring(0, 30);
+          const match = products.find(
+            (p) => ((p.image_url as string) || (p.imageUrl as string)) &&
+              ((p.title as string) || '').toLowerCase().includes(needle)
+          );
+          if (match) {
+            thumbnailUrl = (match.image_url as string) || (match.imageUrl as string) || null;
+          }
+        }
+
+        // Fallback: first product with an image
+        if (!thumbnailUrl) {
+          for (const p of products) {
+            const img = (p.image_url as string) || (p.imageUrl as string);
+            if (img) { thumbnailUrl = img; break; }
+          }
+        }
+      }
+
+      // Update conversation summary columns
+      // We accumulate on top of existing counts for follow-up searches
+      try {
+        const { data: existingConv } = await supabase
+          .from('conversations')
+          .select('total_categories, total_products, thumbnail_url')
+          .eq('id', conversationId)
+          .single();
+
+        const prevCategories = (existingConv?.total_categories as number) || 0;
+        const prevProducts = (existingConv?.total_products as number) || 0;
+
+        const updatePayload: Record<string, unknown> = {
+          total_categories: prevCategories + result.allCategories.length,
+          total_products: prevProducts + totalProducts,
+        };
+
+        // Only set thumbnail if we found one and there isn't one yet
+        if (thumbnailUrl && !existingConv?.thumbnail_url) {
+          updatePayload.thumbnail_url = thumbnailUrl;
+        }
+        // If this is the first search, always set thumbnail
+        if (thumbnailUrl && prevCategories === 0) {
+          updatePayload.thumbnail_url = thumbnailUrl;
+        }
+
+        await supabase
+          .from('conversations')
+          .update(updatePayload)
+          .eq('id', conversationId);
+      } catch (convUpdateError) {
+        console.error('Failed to update conversation summary:', convUpdateError);
+      }
+
       // Stream summary
       writer.write('summary', {
         content: result.summary,
@@ -525,7 +596,7 @@ serve(async (req) => {
         followUpOptions: result.followUpOptions,
       });
 
-      // Track analytics
+      // Track analytics + increment profile lifetime stats
       if (auth.type === 'user') {
         try {
           await supabase.rpc('increment_analytics', {
@@ -534,6 +605,28 @@ serve(async (req) => {
           });
         } catch (analyticsError) {
           console.error('Failed to track search analytics:', analyticsError);
+        }
+
+        // Increment profile total_shops (1 per search) and total_products
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('total_shops, total_products')
+            .eq('id', auth.id)
+            .single();
+
+          if (profile) {
+            await supabase
+              .from('profiles')
+              .update({
+                total_shops: ((profile.total_shops as number) || 0) + 1,
+                total_products: ((profile.total_products as number) || 0) + totalProducts,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', auth.id);
+          }
+        } catch (statsError) {
+          console.error('Failed to increment profile stats:', statsError);
         }
       }
 

@@ -989,6 +989,9 @@ function dbMessageToMessage(
     content: dbMessage.content,
     metadata,
     categories: dbMessage.role === 'assistant' ? categories : undefined,
+    recommendations: (metadata.recommendations as Message['recommendations']) || undefined,
+    followUpQuestion: (metadata.followUpQuestion as string) || null,
+    followUpOptions: (metadata.followUpOptions as string[]) || undefined,
     suggestedQuestions: (metadata.suggestedQuestions as string[]) || undefined,
     createdAt: dbMessage.created_at,
   };
@@ -1004,6 +1007,9 @@ function dbConversationToConversation(
     title: dbConversation.title,
     status: dbConversation.status,
     messages,
+    thumbnailUrl: dbConversation.thumbnail_url ?? null,
+    totalCategories: dbConversation.total_categories ?? 0,
+    totalProducts: dbConversation.total_products ?? 0,
     createdAt: dbConversation.created_at,
     updatedAt: dbConversation.updated_at,
   };

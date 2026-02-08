@@ -271,18 +271,42 @@ function ConversationItem({ conversation }: ConversationItemProps) {
     );
   };
 
-  // Count total products across all messages' categories
-  const totalProducts = (conversation.messages || []).reduce((sum, msg) => {
-    if (msg.categories) {
-      return sum + msg.categories.reduce((catSum, cat) => catSum + (cat.products?.length || 0), 0);
-    }
-    return sum;
-  }, 0);
+  // Use cached summary fields from the conversation (survive refresh).
+  // Fall back to computing from messages for backward compat / in-session data.
+  const totalProducts =
+    conversation.totalProducts > 0
+      ? conversation.totalProducts
+      : (conversation.messages || []).reduce((sum, msg) => {
+          if (msg.categories) {
+            return sum + msg.categories.reduce((catSum, cat) => catSum + (cat.products?.length || 0), 0);
+          }
+          return sum;
+        }, 0);
 
-  // Count categories across all messages
-  const totalCategories = (conversation.messages || []).reduce((sum, msg) => {
-    return sum + (msg.categories?.length || 0);
-  }, 0);
+  const totalCategories =
+    conversation.totalCategories > 0
+      ? conversation.totalCategories
+      : (conversation.messages || []).reduce((sum, msg) => {
+          return sum + (msg.categories?.length || 0);
+        }, 0);
+
+  // Thumbnail: use the stored thumbnail_url, or fall back to computing
+  // from the first AI pick in messages for in-session data.
+  let thumbnailUrl = conversation.thumbnailUrl;
+  if (!thumbnailUrl && conversation.messages?.length) {
+    for (const msg of conversation.messages) {
+      if (msg.categories && msg.categories.length > 0) {
+        const firstCat = msg.categories[0];
+        if (firstCat.products?.length > 0) {
+          const productWithImage = firstCat.products.find((p) => p.imageUrl);
+          if (productWithImage) {
+            thumbnailUrl = productWithImage.imageUrl;
+            break;
+          }
+        }
+      }
+    }
+  }
 
   return (
     <TouchableOpacity
@@ -297,11 +321,19 @@ function ConversationItem({ conversation }: ConversationItemProps) {
         shadowRadius: 6,
         elevation: 4,
       }}>
-      {/* Icon thumbnail */}
+      {/* Thumbnail */}
       <View className="w-28 h-28 bg-background-secondary items-center justify-center">
-        <View className="w-14 h-14 rounded-full bg-gray-200 items-center justify-center">
-          <Ionicons name="search" size={28} color="#6B7280" />
-        </View>
+        {thumbnailUrl ? (
+          <Image
+            source={{ uri: thumbnailUrl }}
+            className="w-full h-full"
+            resizeMode="cover"
+          />
+        ) : (
+          <View className="w-14 h-14 rounded-full bg-gray-200 items-center justify-center">
+            <Ionicons name="search" size={28} color="#6B7280" />
+          </View>
+        )}
       </View>
 
       {/* Content */}

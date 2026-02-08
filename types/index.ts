@@ -294,6 +294,12 @@ export interface Conversation {
   title: string | null;
   status: ConversationStatus;
   messages: Message[];
+  /** Cached thumbnail URL (AI pick from first category) for list views */
+  thumbnailUrl: string | null;
+  /** Cached total categories count for list views */
+  totalCategories: number;
+  /** Cached total products count for list views */
+  totalProducts: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -406,6 +412,9 @@ export interface DbConversation {
   user_id: string;
   title: string | null;
   status: ConversationStatus;
+  thumbnail_url: string | null;
+  total_categories: number;
+  total_products: number;
   created_at: string;
   updated_at: string;
 }
