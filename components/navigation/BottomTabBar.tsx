@@ -89,6 +89,19 @@ export function BottomTabBar() {
     setTimeout(() => router.push('/(app)/search' as any), 120);
   };
 
+  const handleUploadImage = () => {
+    closeMenu();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Navigate to the snap screen with gallery=true to auto-open the image picker
+    setTimeout(() => router.push('/(app)/snap?gallery=true' as any), 120);
+  };
+
+  const handleSavedShops = () => {
+    closeMenu();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setTimeout(() => router.push('/(app)/saved-items' as any), 120);
+  };
+
   const isActive = (route: string) => {
     const normalizedRoute = route.replace(/\([^)]+\)/g, '').replace(/\/+/g, '/');
     return pathname === normalizedRoute || pathname.startsWith(normalizedRoute + '/');
@@ -130,7 +143,7 @@ export function BottomTabBar() {
         <Pressable onPress={closeMenu} style={{ flex: 1 }} />
       </Animated.View>
 
-      {/* Action buttons — centered, nearly full-width */}
+      {/* Action buttons — centered, nearly full-width, two rows */}
       <Animated.View
         style={[
           {
@@ -142,48 +155,96 @@ export function BottomTabBar() {
           },
           menuContainerStyle,
         ]}>
-        <View className="flex-row" style={{ gap: 12 }}>
-          {/* Scan Product */}
-          <TouchableOpacity
-            onPress={handleScanProduct}
-            activeOpacity={0.85}
-            className="flex-1 bg-white rounded-2xl items-center justify-center"
-            style={{
-              height: 120,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.12,
-              shadowRadius: 12,
-              elevation: 6,
-            }}>
-            <View className="w-14 h-14 rounded-full bg-gray-100 items-center justify-center mb-2.5">
-              <Ionicons name="camera-outline" size={28} color="#000" />
-            </View>
-            <Text className="text-[14px] font-inter-semibold text-foreground">
-              Scan Product
-            </Text>
-          </TouchableOpacity>
+        <View style={{ gap: 12 }}>
+          {/* Top row — primary actions */}
+          <View className="flex-row" style={{ gap: 12 }}>
+            {/* Scan Product */}
+            <TouchableOpacity
+              onPress={handleScanProduct}
+              activeOpacity={0.85}
+              className="flex-1 bg-white rounded-2xl items-center justify-center"
+              style={{
+                height: 120,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.12,
+                shadowRadius: 12,
+                elevation: 6,
+              }}>
+              <View className="w-14 h-14 rounded-full bg-gray-100 items-center justify-center mb-2.5">
+                <Ionicons name="camera-outline" size={28} color="#000" />
+              </View>
+              <Text className="text-[14px] font-inter-semibold text-foreground">
+                Scan Product
+              </Text>
+            </TouchableOpacity>
 
-          {/* Search Products */}
-          <TouchableOpacity
-            onPress={handleSearchProducts}
-            activeOpacity={0.85}
-            className="flex-1 bg-white rounded-2xl items-center justify-center"
-            style={{
-              height: 120,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.12,
-              shadowRadius: 12,
-              elevation: 6,
-            }}>
-            <View className="w-14 h-14 rounded-full bg-gray-100 items-center justify-center mb-2.5">
-              <Ionicons name="search-outline" size={28} color="#000" />
-            </View>
-            <Text className="text-[14px] font-inter-semibold text-foreground">
-              Search Products
-            </Text>
-          </TouchableOpacity>
+            {/* Search Products */}
+            <TouchableOpacity
+              onPress={handleSearchProducts}
+              activeOpacity={0.85}
+              className="flex-1 bg-white rounded-2xl items-center justify-center"
+              style={{
+                height: 120,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.12,
+                shadowRadius: 12,
+                elevation: 6,
+              }}>
+              <View className="w-14 h-14 rounded-full bg-gray-100 items-center justify-center mb-2.5">
+                <Ionicons name="search-outline" size={28} color="#000" />
+              </View>
+              <Text className="text-[14px] font-inter-semibold text-foreground">
+                Search Products
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Bottom row — secondary actions */}
+          <View className="flex-row" style={{ gap: 12 }}>
+            {/* Upload Image */}
+            <TouchableOpacity
+              onPress={handleUploadImage}
+              activeOpacity={0.85}
+              className="flex-1 bg-white rounded-2xl items-center justify-center"
+              style={{
+                height: 120,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.12,
+                shadowRadius: 12,
+                elevation: 6,
+              }}>
+              <View className="w-14 h-14 rounded-full bg-gray-100 items-center justify-center mb-2.5">
+                <Ionicons name="image-outline" size={28} color="#000" />
+              </View>
+              <Text className="text-[14px] font-inter-semibold text-foreground">
+                Upload Image
+              </Text>
+            </TouchableOpacity>
+
+            {/* Saved Shops */}
+            <TouchableOpacity
+              onPress={handleSavedShops}
+              activeOpacity={0.85}
+              className="flex-1 bg-white rounded-2xl items-center justify-center"
+              style={{
+                height: 120,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.12,
+                shadowRadius: 12,
+                elevation: 6,
+              }}>
+              <View className="w-14 h-14 rounded-full bg-gray-100 items-center justify-center mb-2.5">
+                <Ionicons name="bookmark-outline" size={28} color="#000" />
+              </View>
+              <Text className="text-[14px] font-inter-semibold text-foreground">
+                Saved Shops
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Animated.View>
 

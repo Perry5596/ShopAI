@@ -1,9 +1,9 @@
 import { View, Text, Alert, Image, ActivityIndicator, StyleSheet, Dimensions } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView as ExpoCameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { IconButton } from '@/components/ui/IconButton';
 import { Button } from '@/components/ui/Button';
 import { CameraView, CameraControls, ZoomControls } from '@/components/snap';
@@ -26,6 +26,7 @@ const TEST_IMAGE = require('@/assets/test-image.png');
 
 export default function SnapScreen() {
   const insets = useSafeAreaInsets();
+  const { gallery } = useLocalSearchParams<{ gallery?: string }>();
   const cameraRef = useRef<ExpoCameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   
@@ -34,9 +35,24 @@ export default function SnapScreen() {
   const [continuousZoom, setContinuousZoom] = useState(0); // 0-1 for pinch-to-zoom
   const [isCapturing, setIsCapturing] = useState(false);
   const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
+  const galleryOpenedRef = useRef(false);
 
   const { captureAndProcess } = useSnapStore();
   const { user, profile, isAuthenticated, isGuest, getIdentity } = useAuth();
+
+  // Auto-open gallery when navigated with ?gallery=true (from "Upload Image" button).
+  // We guard on permission?.granted so the effect only fires once the camera permission
+  // is resolved — this ensures handleGalleryOpen (defined after early returns) is in scope.
+  useEffect(() => {
+    if (gallery === 'true' && permission?.granted && !galleryOpenedRef.current) {
+      galleryOpenedRef.current = true;
+      // Small delay to let the screen finish mounting
+      const timer = setTimeout(() => {
+        handleGalleryOpen();
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [gallery, permission?.granted]);
 
   // Handler for pinch-to-zoom
   const handlePinchZoom = useCallback((newZoom: number) => {
