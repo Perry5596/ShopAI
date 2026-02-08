@@ -75,7 +75,6 @@ async function searchGoogleLens(
 ): Promise<VisualMatch[]> {
   const url = new URL('https://serpapi.com/search');
   url.searchParams.set('engine', 'google_lens');
-  url.searchParams.set('type', 'products'); // Uses the product optimized google lens search
   url.searchParams.set('url', imageUrl);
   url.searchParams.set('api_key', apiKey);
   url.searchParams.set('country', 'us'); // TODO: Make this configurable by the user's actual location

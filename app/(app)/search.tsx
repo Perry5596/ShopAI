@@ -193,6 +193,9 @@ export default function SearchScreen() {
             : 'Search for a product...'
         }
       />
+      <Text className="text-[10px] text-foreground-subtle text-center pb-1">
+        We may earn a small commission from some links
+      </Text>
     </View>
   );
 }
