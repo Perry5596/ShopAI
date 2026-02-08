@@ -5,14 +5,55 @@ import * as Haptics from 'expo-haptics';
 import { CircularProgress } from '@/components/ui/CircularProgress';
 import { useAuth } from '@/contexts/AuthContext';
 import { useShopStore } from '@/stores';
-import type { Shop } from '@/types';
+import { useSearchStore } from '@/stores/searchStore';
+import type { Shop, Conversation } from '@/types';
+
+// ============================================================================
+// Unified Feed Item
+// ============================================================================
+
+export type FeedItem =
+  | { type: 'shop'; data: Shop; date: string }
+  | { type: 'conversation'; data: Conversation; date: string };
 
 interface RecentShopsProps {
   shops: Shop[];
+  conversations: Conversation[];
   isLoadingMore?: boolean;
   hasMore?: boolean;
   onEditTitle: (shop: Shop) => void;
 }
+
+// ============================================================================
+// Date Formatting Helper
+// ============================================================================
+
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const itemDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  const isToday = today.getTime() === itemDate.getTime();
+
+  if (isToday) {
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } else {
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+    });
+  }
+}
+
+// ============================================================================
+// Shop Item (existing scan items)
+// ============================================================================
 
 interface ShopItemProps {
   shop: Shop;
@@ -22,32 +63,6 @@ interface ShopItemProps {
 function ShopItem({ shop, onEditTitle }: ShopItemProps) {
   const { user } = useAuth();
   const { deleteShop, toggleFavorite } = useShopStore();
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const shopDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    
-    // Check if it's today
-    const isToday = today.getTime() === shopDate.getTime();
-    
-    if (isToday) {
-      // Today: show time only
-      return date.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-      });
-    } else {
-      // Not today: show date only
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
-      });
-    }
-  };
 
   const handleLongPress = () => {
     if (!shop || !user?.id) return;
@@ -116,19 +131,16 @@ function ShopItem({ shop, onEditTitle }: ShopItemProps) {
               className="w-full h-full"
               resizeMode="cover"
             />
-            {/* Favorite indicator - subtle star icon in top-right corner */}
             {shop.isFavorite && (
               <View className="absolute top-1.5 right-1.5 bg-black/30 rounded-full p-1">
                 <Ionicons name="star" size={14} color="#FFD700" />
               </View>
             )}
-            {/* Processing overlay */}
             {isProcessing && (
               <View className="absolute inset-0 bg-black/40 items-center justify-center">
                 <CircularProgress size={40} strokeWidth={3} color="#FFFFFF" backgroundColor="rgba(255, 255, 255, 0.3)" textColor="#FFFFFF" duration={10000} startTime={shop.createdAt} />
               </View>
             )}
-            {/* Failed overlay */}
             {isFailed && (
               <View className="absolute inset-0 bg-red-500/20 items-center justify-center">
                 <Ionicons name="alert-circle" size={24} color="#EF4444" />
@@ -138,7 +150,6 @@ function ShopItem({ shop, onEditTitle }: ShopItemProps) {
         ) : (
           <View className="w-full h-full items-center justify-center">
             <Ionicons name="image-outline" size={32} color="#9CA3AF" />
-            {/* Favorite indicator for placeholder image */}
             {shop.isFavorite && (
               <View className="absolute top-1.5 right-1.5 bg-black/30 rounded-full p-1">
                 <Ionicons name="star" size={14} color="#FFD700" />
@@ -171,7 +182,6 @@ function ShopItem({ shop, onEditTitle }: ShopItemProps) {
           </Text>
         </View>
 
-        {/* Processing state content */}
         {isProcessing && (
           <View className="flex-row items-center mt-1">
             <Ionicons name="hourglass-outline" size={14} color="#6B7280" />
@@ -181,7 +191,6 @@ function ShopItem({ shop, onEditTitle }: ShopItemProps) {
           </View>
         )}
 
-        {/* Failed state content */}
         {isFailed && (
           <View className="flex-row items-center mt-1">
             <Ionicons name="refresh-outline" size={14} color="#EF4444" />
@@ -191,7 +200,6 @@ function ShopItem({ shop, onEditTitle }: ShopItemProps) {
           </View>
         )}
 
-        {/* Completed state content */}
         {!isProcessing && !isFailed && (
           <>
             {shop.products.length > 0 && (
@@ -223,16 +231,191 @@ function ShopItem({ shop, onEditTitle }: ShopItemProps) {
   );
 }
 
-type ShopSection = {
+// ============================================================================
+// Conversation Item (text search items)
+// ============================================================================
+
+interface ConversationItemProps {
+  conversation: Conversation;
+}
+
+function ConversationItem({ conversation }: ConversationItemProps) {
+  const { user } = useAuth();
+  const { loadConversation, deleteConversation } = useSearchStore();
+
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    loadConversation(conversation.id);
+    router.push('/(app)/search' as any);
+  };
+
+  const handleLongPress = () => {
+    if (!user?.id) return;
+    Alert.alert(
+      'Options',
+      '',
+      [
+        {
+          text: 'Delete Search',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteConversation(conversation.id);
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete search');
+            }
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  // Count total products across all messages' categories
+  const totalProducts = (conversation.messages || []).reduce((sum, msg) => {
+    if (msg.categories) {
+      return sum + msg.categories.reduce((catSum, cat) => catSum + (cat.products?.length || 0), 0);
+    }
+    return sum;
+  }, 0);
+
+  // Count categories across all messages
+  const totalCategories = (conversation.messages || []).reduce((sum, msg) => {
+    return sum + (msg.categories?.length || 0);
+  }, 0);
+
+  return (
+    <TouchableOpacity
+      className="flex-row bg-card rounded-2xl overflow-hidden mb-3"
+      activeOpacity={0.7}
+      onPress={handlePress}
+      onLongPress={handleLongPress}
+      style={{
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.12,
+        shadowRadius: 6,
+        elevation: 4,
+      }}>
+      {/* Icon thumbnail */}
+      <View className="w-28 h-28 bg-background-secondary items-center justify-center">
+        <View className="w-14 h-14 rounded-full bg-gray-200 items-center justify-center">
+          <Ionicons name="search" size={28} color="#6B7280" />
+        </View>
+      </View>
+
+      {/* Content */}
+      <View className="flex-1 p-3 justify-center">
+        <View className="flex-row items-center justify-between mb-1">
+          <Text
+            className="text-[16px] font-inter-medium text-foreground flex-1"
+            numberOfLines={1}>
+            {conversation.title || 'Text Search'}
+          </Text>
+          <Text className="text-[12px] font-inter text-foreground-muted ml-2">
+            {formatDate(conversation.createdAt)}
+          </Text>
+        </View>
+
+        {/* Type badge */}
+        <View className="flex-row items-center mt-1">
+          <View className="bg-blue-50 px-2 py-0.5 rounded-full mr-2">
+            <Text className="text-[11px] font-inter-medium text-blue-600">
+              AI Search
+            </Text>
+          </View>
+          {totalCategories > 0 && (
+            <Text className="text-[13px] font-inter text-foreground-muted">
+              {totalCategories} categor{totalCategories !== 1 ? 'ies' : 'y'}
+            </Text>
+          )}
+        </View>
+
+        {totalProducts > 0 && (
+          <View className="flex-row items-center mt-1">
+            <Ionicons name="bag-outline" size={14} color="#6B7280" />
+            <Text className="text-[13px] font-inter text-foreground-muted ml-1">
+              {totalProducts} product{totalProducts !== 1 ? 's' : ''} found
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* Chevron */}
+      <View className="justify-center pr-3">
+        <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+// ============================================================================
+// Unified Feed Section
+// ============================================================================
+
+type FeedSection = {
   title: string;
-  shops: Shop[];
+  items: FeedItem[];
 };
 
-export function RecentShops({ shops, isLoadingMore, hasMore, onEditTitle }: RecentShopsProps) {
+function buildFeedSections(shops: Shop[], conversations: Conversation[]): FeedSection[] {
+  // Merge into unified feed items
+  const items: FeedItem[] = [
+    ...shops.map((shop): FeedItem => ({
+      type: 'shop',
+      data: shop,
+      date: shop.createdAt,
+    })),
+    ...conversations.map((conv): FeedItem => ({
+      type: 'conversation',
+      data: conv,
+      date: conv.createdAt,
+    })),
+  ];
+
+  // Sort by date descending
+  items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  // Group by time period
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const sections: FeedSection[] = [
+    { title: 'Today', items: [] },
+    { title: 'This Week', items: [] },
+    { title: 'This Month', items: [] },
+    { title: 'Older', items: [] },
+  ];
+
+  items.forEach((item) => {
+    const itemDate = new Date(item.date);
+    const itemDateOnly = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate());
+    const daysDiff = Math.floor((today.getTime() - itemDateOnly.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (daysDiff === 0) {
+      sections[0].items.push(item);
+    } else if (daysDiff <= 7) {
+      sections[1].items.push(item);
+    } else if (daysDiff <= 30) {
+      sections[2].items.push(item);
+    } else {
+      sections[3].items.push(item);
+    }
+  });
+
+  return sections.filter((section) => section.items.length > 0);
+}
+
+// ============================================================================
+// Main Component
+// ============================================================================
+
+export function RecentShops({ shops, conversations, isLoadingMore, hasMore, onEditTitle }: RecentShopsProps) {
   const { isGuest } = useAuth();
 
-  if (shops.length === 0) {
-    // Different empty state for guests vs authenticated users
+  const totalItems = shops.length + conversations.length;
+
+  if (totalItems === 0) {
     if (isGuest) {
       return (
         <View className="items-center justify-center py-12 px-8">
@@ -267,50 +450,13 @@ export function RecentShops({ shops, isLoadingMore, hasMore, onEditTitle }: Rece
         </View>
         <Text className="text-[16px] font-inter-medium text-foreground-muted">No shops yet</Text>
         <Text className="text-[14px] font-inter text-foreground-subtle mt-1 text-center px-8">
-          Tap the + button to scan your first item
+          Tap the + button to scan or search for your first item
         </Text>
       </View>
     );
   }
 
-  // Group shops by time period
-  const groupShopsByTime = (shops: Shop[]): ShopSection[] => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const oneWeekAgo = new Date(today);
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-    const oneMonthAgo = new Date(today);
-    oneMonthAgo.setDate(oneMonthAgo.getDate() - 30);
-
-    const sections: ShopSection[] = [
-      { title: 'Today', shops: [] },
-      { title: 'This Week', shops: [] },
-      { title: 'This Month', shops: [] },
-      { title: 'Older', shops: [] },
-    ];
-
-    shops.forEach((shop) => {
-      const shopDate = new Date(shop.createdAt);
-      const shopDateOnly = new Date(shopDate.getFullYear(), shopDate.getMonth(), shopDate.getDate());
-      
-      const daysDiff = Math.floor((today.getTime() - shopDateOnly.getTime()) / (1000 * 60 * 60 * 24));
-      
-      if (daysDiff === 0) {
-        sections[0].shops.push(shop);
-      } else if (daysDiff <= 7) {
-        sections[1].shops.push(shop);
-      } else if (daysDiff <= 30) {
-        sections[2].shops.push(shop);
-      } else {
-        sections[3].shops.push(shop);
-      }
-    });
-
-    // Filter out empty sections
-    return sections.filter((section) => section.shops.length > 0);
-  };
-
-  const sections = groupShopsByTime(shops);
+  const sections = buildFeedSections(shops, conversations);
 
   return (
     <View>
@@ -325,10 +471,13 @@ export function RecentShops({ shops, isLoadingMore, hasMore, onEditTitle }: Rece
               {section.title}
             </Text>
             
-            {/* Section Shops */}
-            {section.shops.map((shop) => (
-              <ShopItem key={shop.id} shop={shop} onEditTitle={onEditTitle} />
-            ))}
+            {/* Section Items */}
+            {section.items.map((item) => {
+              if (item.type === 'shop') {
+                return <ShopItem key={`shop-${item.data.id}`} shop={item.data} onEditTitle={onEditTitle} />;
+              }
+              return <ConversationItem key={`conv-${item.data.id}`} conversation={item.data} />;
+            })}
           </View>
         ))}
         
@@ -343,7 +492,7 @@ export function RecentShops({ shops, isLoadingMore, hasMore, onEditTitle }: Rece
         )}
         
         {/* End of list indicator */}
-        {!hasMore && shops.length > 0 && (
+        {!hasMore && totalItems > 0 && (
           <View className="items-center py-4">
             <Text className="text-[13px] font-inter text-foreground-subtle">
               You&apos;ve seen all your shops

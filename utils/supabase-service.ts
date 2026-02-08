@@ -10,6 +10,16 @@ import type {
   ShopStatus,
   RateLimitStatus,
   RateLimitIncrementResult,
+  Conversation,
+  Message,
+  SearchCategory,
+  SearchProduct,
+  DbConversation,
+  DbMessage,
+  DbSearchCategory,
+  DbSearchProduct,
+  AgentSearchResponse,
+  Identity,
 } from '@/types';
 
 // ============================================================================
@@ -927,3 +937,533 @@ export const storageService = {
     return data.imageUrl;
   },
 };
+
+// ============================================================================
+// Type Converters — Text Search
+// ============================================================================
+
+function dbSearchProductToSearchProduct(dbProduct: DbSearchProduct): SearchProduct {
+  return {
+    id: dbProduct.id,
+    categoryId: dbProduct.category_id,
+    title: dbProduct.title,
+    price: dbProduct.price,
+    imageUrl: dbProduct.image_url,
+    affiliateUrl: dbProduct.affiliate_url,
+    source: dbProduct.source,
+    asin: dbProduct.asin,
+    rating: dbProduct.rating,
+    reviewCount: dbProduct.review_count,
+    brand: dbProduct.brand,
+    createdAt: dbProduct.created_at,
+  };
+}
+
+function dbSearchCategoryToSearchCategory(
+  dbCategory: DbSearchCategory,
+  products: SearchProduct[] = []
+): SearchCategory {
+  return {
+    id: dbCategory.id,
+    conversationId: dbCategory.conversation_id,
+    messageId: dbCategory.message_id,
+    label: dbCategory.label,
+    searchQuery: dbCategory.search_query,
+    description: dbCategory.description,
+    sortOrder: dbCategory.sort_order,
+    products,
+    createdAt: dbCategory.created_at,
+  };
+}
+
+function dbMessageToMessage(
+  dbMessage: DbMessage,
+  categories: SearchCategory[] = []
+): Message {
+  const metadata = dbMessage.metadata || {};
+  return {
+    id: dbMessage.id,
+    conversationId: dbMessage.conversation_id,
+    role: dbMessage.role,
+    content: dbMessage.content,
+    metadata,
+    categories: dbMessage.role === 'assistant' ? categories : undefined,
+    suggestedQuestions: (metadata.suggestedQuestions as string[]) || undefined,
+    createdAt: dbMessage.created_at,
+  };
+}
+
+function dbConversationToConversation(
+  dbConversation: DbConversation,
+  messages: Message[] = []
+): Conversation {
+  return {
+    id: dbConversation.id,
+    userId: dbConversation.user_id,
+    title: dbConversation.title,
+    status: dbConversation.status,
+    messages,
+    createdAt: dbConversation.created_at,
+    updatedAt: dbConversation.updated_at,
+  };
+}
+
+// ============================================================================
+// Conversation Service
+// ============================================================================
+
+export const conversationService = {
+  /**
+   * Fetch conversations for a user (list view, without full messages)
+   */
+  async fetchConversations(
+    userId: string,
+    limit = 20,
+    offset = 0
+  ): Promise<{ conversations: Conversation[]; hasMore: boolean }> {
+    const { data, error } = await supabase
+      .from('conversations')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .order('updated_at', { ascending: false })
+      .range(offset, offset + limit);
+
+    if (error) throw error;
+    if (!data || data.length === 0) return { conversations: [], hasMore: false };
+
+    const hasMore = data.length > limit;
+    const items = hasMore ? data.slice(0, limit) : data;
+
+    const conversations = (items as DbConversation[]).map((c) =>
+      dbConversationToConversation(c, [])
+    );
+
+    return { conversations, hasMore };
+  },
+
+  /**
+   * Get a conversation by ID with full messages, categories, and products
+   */
+  async getConversationById(conversationId: string): Promise<Conversation | null> {
+    // Fetch conversation
+    const { data: convData, error: convError } = await supabase
+      .from('conversations')
+      .select('*')
+      .eq('id', conversationId)
+      .single();
+
+    if (convError) {
+      if (convError.code === 'PGRST116') return null;
+      throw convError;
+    }
+
+    // Fetch messages
+    const { data: messagesData, error: msgError } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: true });
+
+    if (msgError) throw msgError;
+
+    // Fetch all categories for this conversation
+    const { data: categoriesData, error: catError } = await supabase
+      .from('search_categories')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .order('sort_order', { ascending: true });
+
+    if (catError) throw catError;
+
+    // Fetch all products for these categories
+    const categoryIds = (categoriesData || []).map((c: DbSearchCategory) => c.id);
+    let productsData: DbSearchProduct[] = [];
+
+    if (categoryIds.length > 0) {
+      const { data: prods, error: prodError } = await supabase
+        .from('search_products')
+        .select('*')
+        .in('category_id', categoryIds);
+
+      if (prodError) throw prodError;
+      productsData = (prods as DbSearchProduct[]) || [];
+    }
+
+    // Group products by category_id
+    const productsByCategoryId: Record<string, SearchProduct[]> = {};
+    for (const p of productsData) {
+      if (!productsByCategoryId[p.category_id]) {
+        productsByCategoryId[p.category_id] = [];
+      }
+      productsByCategoryId[p.category_id].push(dbSearchProductToSearchProduct(p));
+    }
+
+    // Build categories
+    const categoriesByMessageId: Record<string, SearchCategory[]> = {};
+    for (const cat of (categoriesData || []) as DbSearchCategory[]) {
+      const products = productsByCategoryId[cat.id] || [];
+      const category = dbSearchCategoryToSearchCategory(cat, products);
+      if (!categoriesByMessageId[cat.message_id]) {
+        categoriesByMessageId[cat.message_id] = [];
+      }
+      categoriesByMessageId[cat.message_id].push(category);
+    }
+
+    // Build messages with attached categories
+    const messages = ((messagesData || []) as DbMessage[]).map((msg) =>
+      dbMessageToMessage(msg, categoriesByMessageId[msg.id] || [])
+    );
+
+    return dbConversationToConversation(convData as DbConversation, messages);
+  },
+
+  /**
+   * Delete a conversation and all associated data (cascade)
+   */
+  async deleteConversation(conversationId: string): Promise<void> {
+    const { error } = await supabase
+      .from('conversations')
+      .delete()
+      .eq('id', conversationId);
+
+    if (error) throw error;
+  },
+};
+
+// ============================================================================
+// Search Service (calls agent-search edge function via SSE streaming)
+// ============================================================================
+
+/** Callback handlers for streaming agent search events */
+export interface AgentSearchCallbacks {
+  onStatus?: (text: string) => void;
+  onCategory?: (category: {
+    id: string;
+    label: string;
+    description: string;
+    products: unknown[];
+  }) => void;
+  onSummary?: (data: { content: string; suggestedQuestions: string[] }) => void;
+  onDone?: (data: {
+    conversationId: string;
+    messageId: string;
+    categories: unknown[];
+    rateLimit?: { remaining: number; limit: number; reset_at: string | null };
+  }) => void;
+  onError?: (message: string) => void;
+}
+
+/**
+ * Parse SSE events from a block of text.
+ * Each SSE event has the form:
+ *   event: <type>\n
+ *   data: <json>\n
+ *   \n
+ *
+ * Returns { events, remainder } where remainder is an incomplete trailing chunk.
+ */
+function parseSSEEvents(text: string): {
+  events: Array<{ event: string; data: string }>;
+  remainder: string;
+} {
+  const events: Array<{ event: string; data: string }> = [];
+
+  // Split on double-newline boundaries (each SSE event ends with \n\n)
+  const blocks = text.split('\n\n');
+
+  // The last block may be incomplete (no trailing \n\n yet)
+  const remainder = blocks.pop() || '';
+
+  for (const block of blocks) {
+    if (!block.trim()) continue;
+
+    let eventType = '';
+    let eventData = '';
+
+    const lines = block.split('\n');
+    for (const line of lines) {
+      if (line.startsWith('event: ')) {
+        eventType = line.substring(7).trim();
+      } else if (line.startsWith('data: ')) {
+        eventData = line.substring(6);
+      }
+    }
+
+    if (eventType && eventData) {
+      events.push({ event: eventType, data: eventData });
+    }
+  }
+
+  return { events, remainder };
+}
+
+/**
+ * Dispatch a parsed SSE event to the appropriate callback and accumulate
+ * state for the final AgentSearchResponse.
+ */
+function dispatchSSEEvent(
+  evt: { event: string; data: string },
+  callbacks: AgentSearchCallbacks,
+  state: {
+    categories: Array<{ id: string; label: string; description: string; products: unknown[] }>;
+    conversationId: string;
+    messageId: string;
+    summary: string;
+    suggestedQuestions: string[];
+    rateLimit?: { remaining: number; limit: number; reset_at: string | null };
+    errorMessage?: string;
+  }
+) {
+  try {
+    const data = JSON.parse(evt.data);
+
+    switch (evt.event) {
+      case 'status':
+        callbacks.onStatus?.(data.text);
+        break;
+
+      case 'category':
+        state.categories.push(data);
+        callbacks.onCategory?.(data);
+        break;
+
+      case 'summary':
+        state.summary = data.content;
+        state.suggestedQuestions = data.suggestedQuestions || [];
+        callbacks.onSummary?.(data);
+        break;
+
+      case 'done':
+        state.conversationId = data.conversationId;
+        state.messageId = data.messageId;
+        state.rateLimit = data.rateLimit;
+        callbacks.onDone?.(data);
+        break;
+
+      case 'error':
+        state.errorMessage = data.message;
+        callbacks.onError?.(data.message);
+        break;
+    }
+  } catch (parseError) {
+    console.error('Failed to parse SSE event:', evt, parseError);
+  }
+}
+
+/**
+ * Build the final AgentSearchResponse from accumulated SSE state.
+ */
+function buildFinalResponse(
+  state: {
+    categories: Array<{ id: string; label: string; description: string; products: unknown[] }>;
+    conversationId: string;
+    messageId: string;
+    summary: string;
+    suggestedQuestions: string[];
+    rateLimit?: { remaining: number; limit: number; reset_at: string | null };
+  }
+): AgentSearchResponse {
+  return {
+    conversationId: state.conversationId,
+    message: {
+      id: state.messageId,
+      role: 'assistant' as const,
+      content: state.summary,
+    },
+    categories: state.categories.map((cat) => ({
+      id: cat.id,
+      label: cat.label,
+      description: cat.description,
+      products: (cat.products as Array<Record<string, unknown>>).map((p) => ({
+        id: (p.id as string) || '',
+        title: (p.title as string) || '',
+        price: (p.price as string | null) ?? null,
+        image_url: (p.image_url as string | null) ?? null,
+        affiliate_url: (p.affiliate_url as string) || '',
+        source: (p.source as string) || 'Amazon',
+        asin: (p.asin as string | null) ?? null,
+        rating: (p.rating as number | null) ?? null,
+        review_count: (p.review_count as number | null) ?? null,
+        brand: (p.brand as string | null) ?? null,
+        category_id: cat.id,
+        created_at: (p.created_at as string) || new Date().toISOString(),
+      })),
+    })),
+    suggestedQuestions: state.suggestedQuestions,
+    rateLimit: state.rateLimit,
+  };
+}
+
+export const searchService = {
+  /**
+   * Send a search query to the agent-search edge function with SSE streaming.
+   *
+   * Uses XMLHttpRequest + onprogress for true incremental streaming in
+   * React Native (fetch().body.getReader() is not supported on RN/Hermes).
+   *
+   * Calls the provided callbacks as events arrive.
+   * Returns the final AgentSearchResponse for backward compatibility.
+   */
+  agentSearchStream(
+    query: string,
+    identity: Identity,
+    callbacks: AgentSearchCallbacks,
+    conversationId?: string
+  ): Promise<AgentSearchResponse> {
+    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return Promise.reject(new Error('Supabase configuration missing'));
+    }
+
+    const url = `${supabaseUrl}/functions/v1/agent-search`;
+
+    // Build headers
+    const headerEntries: Array<[string, string]> = [
+      ['Content-Type', 'application/json'],
+      ['apikey', supabaseAnonKey],
+    ];
+
+    if (identity.type === 'user') {
+      headerEntries.push(['Authorization', `Bearer ${identity.accessToken}`]);
+    } else {
+      headerEntries.push(['X-Anon-Token', identity.anonToken]);
+    }
+
+    // Accumulated state across SSE events
+    const state = {
+      categories: [] as Array<{ id: string; label: string; description: string; products: unknown[] }>,
+      conversationId: conversationId || '',
+      messageId: '',
+      summary: '',
+      suggestedQuestions: [] as string[],
+      rateLimit: undefined as { remaining: number; limit: number; reset_at: string | null } | undefined,
+      errorMessage: undefined as string | undefined,
+    };
+
+    return new Promise<AgentSearchResponse>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', url);
+
+      // Set headers
+      for (const [key, value] of headerEntries) {
+        xhr.setRequestHeader(key, value);
+      }
+
+      // Track how much of responseText we've already parsed
+      let processedLength = 0;
+      // Buffer for incomplete SSE events across progress calls
+      let sseBuffer = '';
+
+      xhr.onprogress = () => {
+        // Only process new data since last progress event
+        const fullText = xhr.responseText;
+        const newText = fullText.substring(processedLength);
+        processedLength = fullText.length;
+
+        if (!newText) return;
+
+        // Prepend any leftover buffer from last time
+        const textToParse = sseBuffer + newText;
+
+        const { events, remainder } = parseSSEEvents(textToParse);
+        sseBuffer = remainder;
+
+        for (const evt of events) {
+          dispatchSSEEvent(evt, callbacks, state);
+        }
+      };
+
+      xhr.onload = () => {
+        // Process any remaining buffered data
+        if (sseBuffer.trim()) {
+          const { events } = parseSSEEvents(sseBuffer + '\n\n');
+          for (const evt of events) {
+            dispatchSSEEvent(evt, callbacks, state);
+          }
+        }
+
+        // Check for non-SSE error responses (rate limit, auth, etc.)
+        const contentType = xhr.getResponseHeader('content-type') || '';
+        if (!contentType.includes('text/event-stream')) {
+          try {
+            const errorData = JSON.parse(xhr.responseText);
+
+            if (errorData?.code === 'rate_limited') {
+              reject(
+                new RateLimitSearchError(
+                  errorData.message || 'Rate limit exceeded',
+                  errorData.remaining ?? 0,
+                  errorData.reset_at || null,
+                  errorData.limit ?? 20,
+                  identity.type === 'anon'
+                )
+              );
+              return;
+            }
+
+            if (errorData?.code === 'auth_required') {
+              reject(new Error(errorData.message || 'Authentication required'));
+              return;
+            }
+
+            reject(new Error(errorData?.error || 'Search failed. Please try again.'));
+            return;
+          } catch {
+            // If we can't parse as JSON, it might be a generic error
+            if (xhr.status >= 400) {
+              reject(new Error(`Search failed (${xhr.status})`));
+              return;
+            }
+          }
+        }
+
+        // Check if the stream produced an error event
+        if (state.errorMessage) {
+          reject(new Error(state.errorMessage));
+          return;
+        }
+
+        resolve(buildFinalResponse(state));
+      };
+
+      xhr.onerror = () => {
+        reject(new Error('Network error during search. Please check your connection.'));
+      };
+
+      xhr.ontimeout = () => {
+        reject(new Error('Search request timed out. Please try again.'));
+      };
+
+      // 2 minute timeout — agent loop can take a while with multiple API calls
+      xhr.timeout = 120000;
+
+      xhr.send(JSON.stringify({ query, conversationId }));
+    });
+  },
+};
+
+// Custom error class for search rate limiting
+export class RateLimitSearchError extends Error {
+  remaining: number;
+  resetAt: string | null;
+  limit: number;
+  isGuest: boolean;
+
+  constructor(
+    message: string,
+    remaining: number,
+    resetAt: string | null,
+    limit: number,
+    isGuest: boolean
+  ) {
+    super(message);
+    this.name = 'RateLimitSearchError';
+    this.remaining = remaining;
+    this.resetAt = resetAt;
+    this.limit = limit;
+    this.isGuest = isGuest;
+  }
+}

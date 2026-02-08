@@ -170,6 +170,7 @@ export type RootStackParamList = {
   '(app)/home': undefined;
   '(app)/profile': undefined;
   '(app)/snap': undefined;
+  '(app)/search': undefined;
   '(app)/shop/[id]': { id: string };
   '(app)/fix-issue/[id]': { id: string };
 };
@@ -278,3 +279,152 @@ export interface ApiError {
   limit?: number;
   used?: number;
 }
+
+// ============================================================================
+// Text Search (Agentic AI) Types
+// ============================================================================
+
+// Conversation status
+export type ConversationStatus = 'active' | 'archived';
+
+// Conversation (chat session for text search)
+export interface Conversation {
+  id: string;
+  userId: string;
+  title: string | null;
+  status: ConversationStatus;
+  messages: Message[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Chat message (user or assistant)
+export interface Message {
+  id: string;
+  conversationId: string;
+  role: 'user' | 'assistant';
+  content: string;
+  metadata?: Record<string, unknown>;
+  /** Categories attached to this assistant message (if any) */
+  categories?: SearchCategory[];
+  /** Suggested follow-up questions (from metadata) */
+  suggestedQuestions?: string[];
+  createdAt: string;
+}
+
+// AI-generated search category with products
+export interface SearchCategory {
+  id: string;
+  conversationId: string;
+  messageId: string;
+  label: string;
+  searchQuery: string;
+  description: string | null;
+  sortOrder: number;
+  products: SearchProduct[];
+  createdAt: string;
+}
+
+// Product from text search
+export interface SearchProduct {
+  id: string;
+  categoryId: string;
+  title: string;
+  price: string | null;
+  imageUrl: string | null;
+  affiliateUrl: string;
+  source: string;
+  asin: string | null;
+  rating: number | null;
+  reviewCount: number | null;
+  brand: string | null;
+  createdAt: string;
+}
+
+// Search filters
+export interface SearchFilters {
+  minPrice?: number;
+  maxPrice?: number;
+  sortBy?: 'relevance' | 'price_asc' | 'price_desc' | 'rating';
+}
+
+// Response from agent-search edge function
+export interface AgentSearchResponse {
+  conversationId: string;
+  message: {
+    id: string;
+    role: 'assistant';
+    content: string;
+  };
+  categories: Array<{
+    id: string;
+    label: string;
+    description: string;
+    products: Array<{
+      id: string;
+      title: string;
+      price: string | null;
+      image_url: string | null;
+      affiliate_url: string;
+      source: string;
+      asin: string | null;
+      rating: number | null;
+      review_count: number | null;
+      brand: string | null;
+      category_id: string;
+      created_at: string;
+    }>;
+  }>;
+  suggestedQuestions: string[];
+  rateLimit?: {
+    remaining: number;
+    limit: number;
+    reset_at: string | null;
+  };
+}
+
+// Database row types for text search (snake_case from Supabase)
+export interface DbConversation {
+  id: string;
+  user_id: string;
+  title: string | null;
+  status: ConversationStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DbMessage {
+  id: string;
+  conversation_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface DbSearchCategory {
+  id: string;
+  conversation_id: string;
+  message_id: string;
+  label: string;
+  search_query: string;
+  description: string | null;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface DbSearchProduct {
+  id: string;
+  category_id: string;
+  title: string;
+  price: string | null;
+  image_url: string | null;
+  affiliate_url: string;
+  source: string;
+  asin: string | null;
+  rating: number | null;
+  review_count: number | null;
+  brand: string | null;
+  created_at: string;
+}
+

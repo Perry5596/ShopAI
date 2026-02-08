@@ -2,7 +2,7 @@
   "expo": {
     "name": "ShopAI",
     "slug": "ShopAI",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "scheme": "ShopAI",
     "platforms": [
       "ios",

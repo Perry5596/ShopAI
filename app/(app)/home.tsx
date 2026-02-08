@@ -8,6 +8,7 @@ import { BottomTabBar } from '@/components/navigation';
 import { CenteredModal } from '@/components/ui/Modal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useShopStore } from '@/stores';
+import { useSearchStore } from '@/stores/searchStore';
 import { shopService } from '@/utils/supabase-service';
 import type { Shop } from '@/types';
 
@@ -15,6 +16,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { profile, user, refreshProfile, isGuest } = useAuth();
   const { shops, isLoading, isLoadingMore, hasMore, error, fetchShops, fetchMoreShops, updateShop } = useShopStore();
+  const { conversations, fetchConversations } = useSearchStore();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [totalFavorites, setTotalFavorites] = useState(0);
   const [isEditTitleVisible, setIsEditTitleVisible] = useState(false);
@@ -24,12 +26,13 @@ export default function HomeScreen() {
   // Track which shops were processing to detect completion
   const previousProcessingShopsRef = useRef<Set<string>>(new Set());
 
-  // Fetch shops when user is available
+  // Fetch shops and conversations when user is available
   useEffect(() => {
     if (user?.id) {
       fetchShops(user.id);
+      fetchConversations(user.id);
     }
-  }, [user?.id, fetchShops]);
+  }, [user?.id, fetchShops, fetchConversations]);
 
   // Fetch total favorites count (lightweight query)
   const loadFavoritesCount = useCallback(async () => {
@@ -84,6 +87,7 @@ export default function HomeScreen() {
     try {
       await Promise.all([
         fetchShops(user.id),
+        fetchConversations(user.id),
         refreshProfile(),
         loadFavoritesCount(),
       ]);
@@ -230,7 +234,8 @@ export default function HomeScreen() {
         {(shops.length > 0 || !isLoading) && (
           <View>
             <RecentShops 
-              shops={shops} 
+              shops={shops}
+              conversations={conversations}
               isLoadingMore={isLoadingMore}
               hasMore={hasMore}
               onEditTitle={handleEditTitle}

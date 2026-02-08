@@ -57,6 +57,12 @@ export default function AppLayout() {
           animation: 'slide_from_bottom',
         }}
       />
+      <Stack.Screen
+        name="search"
+        options={{
+          animation: 'slide_from_bottom',
+        }}
+      />
       <Stack.Screen name="guest-results" />
       <Stack.Screen name="shop/[id]" />
       <Stack.Screen name="fix-issue/[id]" />
