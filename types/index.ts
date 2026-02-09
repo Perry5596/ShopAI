@@ -68,8 +68,10 @@ export interface ProductLink {
   affiliateUrl: string;
   source: string; // e.g., "Amazon", "Target", etc.
   isRecommended: boolean;
+  isFavorite?: boolean;
   rating?: number;
   reviewCount?: number;
+  createdAt?: string;
 }
 
 // AI processing result schema (for snap feature)
@@ -103,6 +105,7 @@ export interface DbProduct {
   affiliate_url: string;
   source: string;
   is_recommended: boolean;
+  is_favorite: boolean;
   rating: number | null;
   review_count: number | null;
   created_at: string;

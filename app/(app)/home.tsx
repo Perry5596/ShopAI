@@ -9,19 +9,20 @@ import { CenteredModal } from '@/components/ui/Modal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useShopStore } from '@/stores';
 import { useSearchStore } from '@/stores/searchStore';
-import { shopService } from '@/utils/supabase-service';
-import type { Shop } from '@/types';
+import { shopService, conversationService } from '@/utils/supabase-service';
+import type { Shop, Conversation } from '@/types';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { profile, user, refreshProfile, isGuest } = useAuth();
   const { shops, isLoading, isLoadingMore, hasMore, error, fetchShops, fetchMoreShops, updateShop } = useShopStore();
-  const { conversations, fetchConversations } = useSearchStore();
+  const { conversations, fetchConversations, renameConversation } = useSearchStore();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [totalFavorites, setTotalFavorites] = useState(0);
   const [isEditTitleVisible, setIsEditTitleVisible] = useState(false);
   const [editTitleValue, setEditTitleValue] = useState('');
   const [editingShop, setEditingShop] = useState<Shop | null>(null);
+  const [editingConversation, setEditingConversation] = useState<Conversation | null>(null);
 
   // Track which shops were processing to detect completion
   const previousProcessingShopsRef = useRef<Set<string>>(new Set());
@@ -131,35 +132,55 @@ export default function HomeScreen() {
 
   const handleEditTitle = (shop: Shop) => {
     setEditingShop(shop);
+    setEditingConversation(null);
     setEditTitleValue(shop.title);
     setIsEditTitleVisible(true);
   };
 
+  const handleEditConversationTitle = (conversation: Conversation) => {
+    setEditingConversation(conversation);
+    setEditingShop(null);
+    setEditTitleValue(conversation.title || '');
+    setIsEditTitleVisible(true);
+  };
+
   const handleSaveTitle = async () => {
-    if (!editingShop || !editTitleValue.trim()) {
+    if (!editTitleValue.trim()) {
       Alert.alert('Error', 'Title cannot be empty');
       return;
     }
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const trimmedTitle = editTitleValue.trim();
-    const originalTitle = editingShop.title;
-    
-    // Optimistic update
-    updateShop(editingShop.id, { title: trimmedTitle });
     setIsEditTitleVisible(false);
 
-    try {
-      // Update in database
-      await shopService.updateShop(editingShop.id, { title: trimmedTitle });
-    } catch (error) {
-      // Revert on error
-      updateShop(editingShop.id, { title: originalTitle });
-      Alert.alert('Error', 'Failed to update title');
-      setIsEditTitleVisible(true);
-      setEditTitleValue(trimmedTitle);
-    } finally {
-      setEditingShop(null);
+    if (editingConversation) {
+      // Rename conversation
+      try {
+        await renameConversation(editingConversation.id, trimmedTitle);
+      } catch (error) {
+        Alert.alert('Error', 'Failed to update title');
+      } finally {
+        setEditingConversation(null);
+      }
+    } else if (editingShop) {
+      const originalTitle = editingShop.title;
+      
+      // Optimistic update
+      updateShop(editingShop.id, { title: trimmedTitle });
+
+      try {
+        // Update in database
+        await shopService.updateShop(editingShop.id, { title: trimmedTitle });
+      } catch (error) {
+        // Revert on error
+        updateShop(editingShop.id, { title: originalTitle });
+        Alert.alert('Error', 'Failed to update title');
+        setIsEditTitleVisible(true);
+        setEditTitleValue(trimmedTitle);
+      } finally {
+        setEditingShop(null);
+      }
     }
   };
 
@@ -168,6 +189,7 @@ export default function HomeScreen() {
     setIsEditTitleVisible(false);
     setEditTitleValue('');
     setEditingShop(null);
+    setEditingConversation(null);
   };
 
   return (
@@ -239,6 +261,7 @@ export default function HomeScreen() {
               isLoadingMore={isLoadingMore}
               hasMore={hasMore}
               onEditTitle={handleEditTitle}
+              onEditConversationTitle={handleEditConversationTitle}
             />
           </View>
         )}
@@ -268,7 +291,7 @@ export default function HomeScreen() {
           <TextInput
             value={editTitleValue}
             onChangeText={setEditTitleValue}
-            placeholder="Enter shop title"
+            placeholder={editingConversation ? "Enter search title" : "Enter shop title"}
             placeholderTextColor="#9CA3AF"
             className="border border-border-light rounded-xl px-4 py-3 text-[16px] font-inter text-foreground bg-card mb-4"
             autoFocus

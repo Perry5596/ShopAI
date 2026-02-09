@@ -27,6 +27,9 @@ export default function SearchScreen() {
     startSearch,
     sendFollowUp,
     clearActiveConversation,
+    deleteConversation,
+    toggleConversationFavorite,
+    renameConversation,
   } = useSearchStore();
 
   const messages = activeConversation?.messages || [];
@@ -82,6 +85,27 @@ export default function SearchScreen() {
     return savedProductService.toggleFavorite(productId);
   }, []);
 
+  const handleDelete = useCallback(() => {
+    if (activeConversation?.id) {
+      deleteConversation(activeConversation.id);
+    }
+  }, [activeConversation?.id, deleteConversation]);
+
+  const handleToggleFavorite = useCallback(() => {
+    if (activeConversation?.id) {
+      toggleConversationFavorite(activeConversation.id);
+    }
+  }, [activeConversation?.id, toggleConversationFavorite]);
+
+  const handleRename = useCallback(
+    (newTitle: string) => {
+      if (activeConversation?.id) {
+        renameConversation(activeConversation.id, newTitle);
+      }
+    },
+    [activeConversation?.id, renameConversation]
+  );
+
   // Track scroll position to decide when to show the scroll-to-bottom button
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
@@ -131,7 +155,14 @@ export default function SearchScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <SearchHeader title={conversationTitle} />
+      <SearchHeader
+        title={conversationTitle}
+        conversationId={activeConversation?.id || null}
+        isFavorite={activeConversation?.isFavorite}
+        onDelete={handleDelete}
+        onToggleFavorite={handleToggleFavorite}
+        onRename={handleRename}
+      />
 
       {isLoadingConversation ? (
         <View className="flex-1 items-center justify-center">

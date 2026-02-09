@@ -54,8 +54,10 @@ function dbProductToProductLink(dbProduct: DbProduct): ProductLink {
     affiliateUrl: dbProduct.affiliate_url,
     source: dbProduct.source,
     isRecommended: dbProduct.is_recommended,
+    isFavorite: dbProduct.is_favorite ?? false,
     rating: dbProduct.rating ?? undefined,
     reviewCount: dbProduct.review_count ?? undefined,
+    createdAt: dbProduct.created_at,
   };
 }
 
@@ -666,6 +668,60 @@ export const productService = {
 
     if (error) throw error;
   },
+
+  /**
+   * Toggle the is_favorite flag on an image scan product.
+   * Returns the new favorite state.
+   */
+  async toggleFavorite(productId: string): Promise<boolean> {
+    const { data: current, error: readError } = await supabase
+      .from('products')
+      .select('is_favorite')
+      .eq('id', productId)
+      .single();
+
+    if (readError) throw readError;
+
+    const newValue = !(current as { is_favorite: boolean }).is_favorite;
+
+    const { error: updateError } = await supabase
+      .from('products')
+      .update({ is_favorite: newValue })
+      .eq('id', productId);
+
+    if (updateError) throw updateError;
+    return newValue;
+  },
+
+  /**
+   * Fetch all favorite scan products for a user.
+   * Joins through shops to filter by user.
+   */
+  async fetchFavoriteProducts(userId: string): Promise<ProductLink[]> {
+    // Get all shop IDs for this user
+    const { data: shopData, error: shopError } = await supabase
+      .from('shops')
+      .select('id')
+      .eq('user_id', userId);
+
+    if (shopError) throw shopError;
+    if (!shopData || shopData.length === 0) return [];
+
+    const shopIds = shopData.map((s: { id: string }) => s.id);
+
+    // Get all favorite products from these shops
+    const { data: productData, error: prodError } = await supabase
+      .from('products')
+      .select('*')
+      .in('shop_id', shopIds)
+      .eq('is_favorite', true)
+      .order('created_at', { ascending: false });
+
+    if (prodError) throw prodError;
+    if (!productData || productData.length === 0) return [];
+
+    return (productData as DbProduct[]).map(dbProductToProductLink);
+  },
 };
 
 // ============================================================================
@@ -1127,6 +1183,18 @@ export const conversationService = {
   },
 
   /**
+   * Rename a conversation (update title)
+   */
+  async renameConversation(conversationId: string, title: string): Promise<void> {
+    const { error } = await supabase
+      .from('conversations')
+      .update({ title })
+      .eq('id', conversationId);
+
+    if (error) throw error;
+  },
+
+  /**
    * Delete a conversation and all associated data (cascade)
    */
   async deleteConversation(conversationId: string): Promise<void> {
@@ -1136,6 +1204,28 @@ export const conversationService = {
       .eq('id', conversationId);
 
     if (error) throw error;
+  },
+
+  /**
+   * Fetch favorite conversations for a user (list view, without full messages)
+   */
+  async fetchFavoriteConversations(
+    userId: string
+  ): Promise<Conversation[]> {
+    const { data, error } = await supabase
+      .from('conversations')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('is_favorite', true)
+      .eq('status', 'active')
+      .order('updated_at', { ascending: false });
+
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
+
+    return (data as DbConversation[]).map((c) =>
+      dbConversationToConversation(c, [])
+    );
   },
 
   /**

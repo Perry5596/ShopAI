@@ -22,6 +22,7 @@ interface RecentShopsProps {
   isLoadingMore?: boolean;
   hasMore?: boolean;
   onEditTitle: (shop: Shop) => void;
+  onEditConversationTitle: (conversation: Conversation) => void;
 }
 
 // ============================================================================
@@ -237,9 +238,10 @@ function ShopItem({ shop, onEditTitle }: ShopItemProps) {
 
 interface ConversationItemProps {
   conversation: Conversation;
+  onEditTitle: (conversation: Conversation) => void;
 }
 
-function ConversationItem({ conversation }: ConversationItemProps) {
+function ConversationItem({ conversation, onEditTitle }: ConversationItemProps) {
   const { user } = useAuth();
   const { loadConversation, deleteConversation, toggleConversationFavorite } = useSearchStore();
 
@@ -255,6 +257,12 @@ function ConversationItem({ conversation }: ConversationItemProps) {
       'Options',
       '',
       [
+        {
+          text: 'Rename',
+          onPress: () => {
+            onEditTitle(conversation);
+          },
+        },
         {
           text: conversation.isFavorite ? 'Remove from Favorites' : 'Add to Favorites',
           onPress: async () => {
@@ -458,7 +466,7 @@ function buildFeedSections(shops: Shop[], conversations: Conversation[]): FeedSe
 // Main Component
 // ============================================================================
 
-export function RecentShops({ shops, conversations, isLoadingMore, hasMore, onEditTitle }: RecentShopsProps) {
+export function RecentShops({ shops, conversations, isLoadingMore, hasMore, onEditTitle, onEditConversationTitle }: RecentShopsProps) {
   const { isGuest } = useAuth();
 
   const totalItems = shops.length + conversations.length;
@@ -524,7 +532,7 @@ export function RecentShops({ shops, conversations, isLoadingMore, hasMore, onEd
               if (item.type === 'shop') {
                 return <ShopItem key={`shop-${item.data.id}`} shop={item.data} onEditTitle={onEditTitle} />;
               }
-              return <ConversationItem key={`conv-${item.data.id}`} conversation={item.data} />;
+              return <ConversationItem key={`conv-${item.data.id}`} conversation={item.data} onEditTitle={onEditConversationTitle} />;
             })}
           </View>
         ))}

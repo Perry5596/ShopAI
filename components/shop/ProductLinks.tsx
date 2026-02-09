@@ -1,5 +1,6 @@
-import { View, Text, Image, TouchableOpacity, Linking, Dimensions, Alert, ImageSourcePropType } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Linking, Dimensions, Alert, Share, ImageSourcePropType, Platform, ActionSheetIOS } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import { Badge } from '../ui/Badge';
 import type { ProductLink } from '@/types';
 import * as Haptics from 'expo-haptics';
@@ -18,6 +19,7 @@ interface ProductLinksProps {
   recommendation?: ProductLink;
   onShareProduct?: (product: ProductLink) => void;
   onLinkClick?: () => void;
+  onSaveProduct?: (productId: string) => void;
 }
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -124,7 +126,7 @@ function StarRating({ rating, size = 12 }: { rating: number; size?: number }) {
 /**
  * Google Lens-style product card for grid display
  */
-function ProductCard({ link, onShareProduct, onLinkClick }: { link: ProductLink; onShareProduct?: (product: ProductLink) => void; onLinkClick?: () => void }) {
+function ProductCard({ link, onShareProduct, onLinkClick, onSaveProduct }: { link: ProductLink; onShareProduct?: (product: ProductLink) => void; onLinkClick?: () => void; onSaveProduct?: (productId: string) => void }) {
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onLinkClick?.();
@@ -133,29 +135,37 @@ function ProductCard({ link, onShareProduct, onLinkClick }: { link: ProductLink;
 
   const handleLongPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert(
-      'Options',
-      '',
-      [
-        {
-          text: 'Open Link',
-          onPress: () => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            onLinkClick?.();
-            Linking.openURL(link.affiliateUrl);
-          },
-        },
-        {
-          text: 'Share Link',
-          onPress: () => {
-            if (onShareProduct) {
-              onShareProduct(link);
-            }
-          },
-        },
+    const saveLabel = link.isFavorite ? 'Remove from Saved' : 'Save for Later';
+    const options = ['Copy Link', 'Share', saveLabel, 'Cancel'];
+    const cancelIndex = options.length - 1;
+
+    const handleAction = (index: number) => {
+      switch (index) {
+        case 0: // Copy Link
+          Clipboard.setStringAsync(link.affiliateUrl);
+          break;
+        case 1: // Share
+          Share.share({ url: link.affiliateUrl, title: link.title });
+          break;
+        case 2: // Save / Unsave
+          onSaveProduct?.(link.id);
+          break;
+      }
+    };
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options, cancelButtonIndex: cancelIndex },
+        handleAction
+      );
+    } else {
+      Alert.alert('Options', '', [
+        { text: 'Copy Link', onPress: () => handleAction(0) },
+        { text: 'Share', onPress: () => handleAction(1) },
+        { text: saveLabel, onPress: () => handleAction(2) },
         { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+      ]);
+    }
   };
 
   const retailerStyle = getRetailerStyle(link.source);
@@ -236,7 +246,7 @@ function ProductCard({ link, onShareProduct, onLinkClick }: { link: ProductLink;
 /**
  * Featured recommendation card with larger display
  */
-function RecommendedCard({ link, onShareProduct, onLinkClick }: { link: ProductLink; onShareProduct?: (product: ProductLink) => void; onLinkClick?: () => void }) {
+function RecommendedCard({ link, onShareProduct, onLinkClick, onSaveProduct }: { link: ProductLink; onShareProduct?: (product: ProductLink) => void; onLinkClick?: () => void; onSaveProduct?: (productId: string) => void }) {
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onLinkClick?.();
@@ -245,29 +255,37 @@ function RecommendedCard({ link, onShareProduct, onLinkClick }: { link: ProductL
 
   const handleLongPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert(
-      'Options',
-      '',
-      [
-        {
-          text: 'Open Link',
-          onPress: () => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            onLinkClick?.();
-            Linking.openURL(link.affiliateUrl);
-          },
-        },
-        {
-          text: 'Share Link',
-          onPress: () => {
-            if (onShareProduct) {
-              onShareProduct(link);
-            }
-          },
-        },
+    const saveLabel = link.isFavorite ? 'Remove from Saved' : 'Save for Later';
+    const options = ['Copy Link', 'Share', saveLabel, 'Cancel'];
+    const cancelIndex = options.length - 1;
+
+    const handleAction = (index: number) => {
+      switch (index) {
+        case 0: // Copy Link
+          Clipboard.setStringAsync(link.affiliateUrl);
+          break;
+        case 1: // Share
+          Share.share({ url: link.affiliateUrl, title: link.title });
+          break;
+        case 2: // Save / Unsave
+          onSaveProduct?.(link.id);
+          break;
+      }
+    };
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options, cancelButtonIndex: cancelIndex },
+        handleAction
+      );
+    } else {
+      Alert.alert('Options', '', [
+        { text: 'Copy Link', onPress: () => handleAction(0) },
+        { text: 'Share', onPress: () => handleAction(1) },
+        { text: saveLabel, onPress: () => handleAction(2) },
         { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+      ]);
+    }
   };
 
   const retailerStyle = getRetailerStyle(link.source);
@@ -366,7 +384,7 @@ function RecommendedCard({ link, onShareProduct, onLinkClick }: { link: ProductL
   );
 }
 
-export function ProductLinks({ links, recommendation, onShareProduct, onLinkClick }: ProductLinksProps) {
+export function ProductLinks({ links, recommendation, onShareProduct, onLinkClick, onSaveProduct }: ProductLinksProps) {
   const filteredLinks = links.filter((l) => l.id !== recommendation?.id);
 
   // Split into pairs for 2-column grid
@@ -378,7 +396,7 @@ export function ProductLinks({ links, recommendation, onShareProduct, onLinkClic
   return (
     <View className="px-4 pt-4">
       {/* Recommendation - Featured Card */}
-      {recommendation && <RecommendedCard link={recommendation} onShareProduct={onShareProduct} onLinkClick={onLinkClick} />}
+      {recommendation && <RecommendedCard link={recommendation} onShareProduct={onShareProduct} onLinkClick={onLinkClick} onSaveProduct={onSaveProduct} />}
 
       {/* Other Links - Grid Layout */}
       {filteredLinks.length > 0 && (
@@ -391,7 +409,7 @@ export function ProductLinks({ links, recommendation, onShareProduct, onLinkClic
           {rows.map((row, rowIndex) => (
             <View key={rowIndex} className="flex-row justify-between">
               {row.map((link) => (
-                <ProductCard key={link.id} link={link} onShareProduct={onShareProduct} onLinkClick={onLinkClick} />
+                <ProductCard key={link.id} link={link} onShareProduct={onShareProduct} onLinkClick={onLinkClick} onSaveProduct={onSaveProduct} />
               ))}
               {/* Add empty space if odd number of items in last row */}
               {row.length === 1 && <View style={{ width: CARD_WIDTH }} />}

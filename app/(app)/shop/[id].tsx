@@ -19,7 +19,7 @@ import { CircularProgress } from '@/components/ui/CircularProgress';
 import { CenteredModal, FadeModal } from '@/components/ui/Modal';
 import { useShopStore } from '@/stores';
 import { useAuth } from '@/contexts/AuthContext';
-import { shopService, analyticsService } from '@/utils/supabase-service';
+import { shopService, productService, analyticsService } from '@/utils/supabase-service';
 import type { Shop, ProductLink } from '@/types';
 
 export default function ShopDetailScreen() {
@@ -277,6 +277,28 @@ export default function ShopDetailScreen() {
     }
   };
 
+  const handleSaveProduct = async (productId: string) => {
+    if (!shop) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Optimistic update: toggle isFavorite in the local store
+    const updatedProducts = shop.products.map((p) =>
+      p.id === productId ? { ...p, isFavorite: !p.isFavorite } : p
+    );
+    const updatedRec = shop.recommendation?.id === productId
+      ? { ...shop.recommendation, isFavorite: !shop.recommendation.isFavorite }
+      : shop.recommendation;
+    updateShop(shop.id, { products: updatedProducts, recommendation: updatedRec });
+
+    try {
+      await productService.toggleFavorite(productId);
+    } catch (err) {
+      // Revert on error
+      updateShop(shop.id, { products: shop.products, recommendation: shop.recommendation });
+      Alert.alert('Error', 'Failed to save product');
+    }
+  };
+
   // Loading shop from Supabase
   if (!shop && isLoadingShop) {
     return (
@@ -423,6 +445,7 @@ export default function ShopDetailScreen() {
           recommendation={shop.recommendation}
           onShareProduct={handleShareProduct}
           onLinkClick={handleLinkClick}
+          onSaveProduct={handleSaveProduct}
         />
       </ScrollView>
 

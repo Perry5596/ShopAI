@@ -114,6 +114,7 @@ interface SearchState {
   loadConversation: (conversationId: string) => Promise<void>;
   deleteConversation: (conversationId: string) => Promise<void>;
   toggleConversationFavorite: (conversationId: string) => Promise<void>;
+  renameConversation: (conversationId: string, title: string) => Promise<void>;
   clearActiveConversation: () => void;
   reset: () => void;
 }
@@ -591,6 +592,28 @@ export const useSearchStore = create<SearchState>((set, get) => ({
             ? { ...state.activeConversation, isFavorite: !state.activeConversation.isFavorite }
             : state.activeConversation,
       }));
+    }
+  },
+
+  renameConversation: async (conversationId: string, title: string) => {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+
+    // Optimistic update
+    set((state) => ({
+      conversations: state.conversations.map((c) =>
+        c.id === conversationId ? { ...c, title: trimmed } : c
+      ),
+      activeConversation:
+        state.activeConversation?.id === conversationId
+          ? { ...state.activeConversation, title: trimmed }
+          : state.activeConversation,
+    }));
+
+    try {
+      await conversationService.renameConversation(conversationId, trimmed);
+    } catch (error) {
+      console.error('Failed to rename conversation:', error);
     }
   },
 
