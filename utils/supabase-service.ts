@@ -1608,6 +1608,17 @@ export const searchService = {
       };
 
       xhr.onload = () => {
+        // IMPORTANT: Process any final data that onprogress may not have caught.
+        // In React Native, the last chunk can arrive with onload without a
+        // preceding onprogress, so we must check for unprocessed data here.
+        const fullText = xhr.responseText;
+        const remaining = fullText.substring(processedLength);
+        processedLength = fullText.length;
+
+        if (remaining) {
+          sseBuffer += remaining;
+        }
+
         // Process any remaining buffered data
         if (sseBuffer.trim()) {
           const { events } = parseSSEEvents(sseBuffer + '\n\n');

@@ -174,7 +174,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       });
 
       // Use streaming API with callbacks
-      const response = await searchService.agentSearchStream(
+      await searchService.agentSearchStream(
         query,
         identity,
         {
@@ -258,7 +258,12 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
               const messages = state.activeConversation.messages.map((msg) => {
                 if (msg.id === optimisticUserMessage.id) {
-                  return { ...msg, conversationId: data.conversationId };
+                  // Update both conversationId AND id so cleanup won't strip this message
+                  return {
+                    ...msg,
+                    id: `user-${data.conversationId}-${Date.now()}`,
+                    conversationId: data.conversationId,
+                  };
                 }
                 if (msg.id.startsWith('streaming-')) {
                   return {
@@ -311,20 +316,31 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           },
 
           onError: (message) => {
-            set({
+            // Clean up optimistic messages on SSE error
+            set((state) => ({
               isSearching: false,
               streamStatus: null,
               error: message,
-            });
+              activeConversation: null, // Reset to show empty search on error
+            }));
           },
         }
       );
+
+      // Safety net: if onDone didn't fire (e.g. server closed stream without
+      // sending done event), ensure isSearching is reset so the UI isn't stuck.
+      if (get().isSearching) {
+        console.warn('startSearch: stream resolved without onDone — resetting state');
+        set({ isSearching: false, streamStatus: null });
+      }
     } catch (error) {
       console.error('Search failed:', error);
+      // Clean up optimistic messages and reset conversation on failure
       set({
         isSearching: false,
         streamStatus: null,
         error: error instanceof Error ? error.message : 'Search failed. Please try again.',
+        activeConversation: null,
       });
       throw error;
     }
@@ -338,10 +354,15 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
     set({ isSearching: true, error: null, streamStatus: null, suggestedQuestions: [] });
 
+    // Track exact IDs so error cleanup only removes THIS follow-up's messages
+    const now = Date.now();
+    const optimisticUserId = `temp-followup-${now}`;
+    const streamingAssistantId = `streaming-followup-${now}`;
+
     try {
       // Add optimistic user message
       const optimisticUserMessage: Message = {
-        id: `temp-${Date.now()}`,
+        id: optimisticUserId,
         conversationId,
         role: 'user',
         content: query,
@@ -350,7 +371,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
       // Create streaming assistant placeholder
       const streamingAssistantMessage: Message = {
-        id: `streaming-followup-${Date.now()}`,
+        id: streamingAssistantId,
         conversationId,
         role: 'assistant',
         content: '',
@@ -399,7 +420,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
               if (!state.activeConversation) return state;
 
               const messages = state.activeConversation.messages.map((msg) => {
-                if (msg.id.startsWith('streaming-followup-')) {
+                if (msg.id === streamingAssistantId) {
                   return {
                     ...msg,
                     categories: [...(msg.categories || []), clientCategory],
@@ -422,7 +443,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
               if (!state.activeConversation) return state;
 
               const messages = state.activeConversation.messages.map((msg) => {
-                if (msg.id.startsWith('streaming-followup-')) {
+                if (msg.id === streamingAssistantId) {
                   return {
                     ...msg,
                     content: (data.content as string) || '',
@@ -450,7 +471,15 @@ export const useSearchStore = create<SearchState>((set, get) => ({
               if (!state.activeConversation) return state;
 
               const messages = state.activeConversation.messages.map((msg) => {
-                if (msg.id.startsWith('streaming-followup-')) {
+                if (msg.id === optimisticUserId) {
+                  // Finalize user message ID so it won't be caught by cleanup filters
+                  return {
+                    ...msg,
+                    id: `user-${data.conversationId}-${Date.now()}`,
+                    conversationId: data.conversationId,
+                  };
+                }
+                if (msg.id === streamingAssistantId) {
                   return {
                     ...msg,
                     id: data.messageId,
@@ -493,18 +522,44 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           },
 
           onError: (message) => {
-            set({
+            // Clean up only this follow-up's optimistic messages on SSE error
+            set((state) => ({
               isSearching: false,
               streamStatus: null,
               error: message,
-            });
+              activeConversation: state.activeConversation
+                ? {
+                    ...state.activeConversation,
+                    messages: state.activeConversation.messages.filter(
+                      (m) => m.id !== optimisticUserId && m.id !== streamingAssistantId
+                    ),
+                  }
+                : null,
+            }));
           },
         },
         conversationId
       );
+
+      // Safety net: if onDone didn't fire, ensure isSearching is reset
+      if (get().isSearching) {
+        console.warn('sendFollowUp: stream resolved without onDone — resetting state');
+        set((state) => ({
+          isSearching: false,
+          streamStatus: null,
+          activeConversation: state.activeConversation
+            ? {
+                ...state.activeConversation,
+                messages: state.activeConversation.messages.filter(
+                  (m) => m.id !== optimisticUserId && m.id !== streamingAssistantId
+                ),
+              }
+            : null,
+        }));
+      }
     } catch (error) {
       console.error('Follow-up failed:', error);
-      // Remove optimistic messages on error
+      // Remove only this follow-up's optimistic messages on error (preserve prior messages)
       set((state) => ({
         isSearching: false,
         streamStatus: null,
@@ -513,7 +568,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           ? {
               ...state.activeConversation,
               messages: state.activeConversation.messages.filter(
-                (m) => !m.id.startsWith('temp-') && !m.id.startsWith('streaming-')
+                (m) => m.id !== optimisticUserId && m.id !== streamingAssistantId
               ),
             }
           : null,
