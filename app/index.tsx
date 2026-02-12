@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { View, Text, Linking, Alert, ActivityIndicator, Platform, Image } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/contexts/AuthContext';
 import * as Haptics from 'expo-haptics';
@@ -134,6 +133,17 @@ export default function WelcomeScreen() {
 
   return (
     <View className="flex-1 bg-background">
+      {/* Skip (Continue as Guest) - Top Right */}
+      <View
+        className="absolute z-10 right-4"
+        style={{ top: insets.top + 8 }}>
+        <Text
+          className="text-[15px] text-foreground-muted font-inter-medium"
+          onPress={handleContinueAsGuest}>
+          Skip
+        </Text>
+      </View>
+
       {/* Main Content - Centered */}
       <View className="flex-1 items-center justify-center px-8">
         {/* Logo */}
@@ -199,25 +209,6 @@ export default function WelcomeScreen() {
           fullWidth
           onPress={handleGoogleSignIn}
           className="mb-3"
-        />
-
-        {/* OR Divider */}
-        <View className="flex-row items-center my-3">
-          <View className="flex-1 h-px bg-border" />
-          <Text className="mx-4 text-[14px] text-foreground-muted font-inter-medium">
-            OR
-          </Text>
-          <View className="flex-1 h-px bg-border" />
-        </View>
-
-        {/* Continue as Guest */}
-        <Button
-          title="Continue as Guest"
-          variant="ghost"
-          size="md"
-          icon="person-outline"
-          fullWidth
-          onPress={handleContinueAsGuest}
         />
 
         {/* Terms & Privacy */}
