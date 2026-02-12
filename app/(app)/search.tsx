@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState, useEffect } from 'react';
 import { View, FlatList, Alert, TouchableOpacity, NativeSyntheticEvent, NativeScrollEvent, ActivityIndicator, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,6 +17,8 @@ export default function SearchScreen() {
   const [showScrollButton, setShowScrollButton] = useState(false);
   // Track whether the user just sent a message (to auto-scroll only on send)
   const justSentRef = useRef(false);
+  // Track last query for retry
+  const lastQueryRef = useRef<string>('');
 
   const {
     activeConversation,
@@ -35,6 +37,15 @@ export default function SearchScreen() {
   const messages = activeConversation?.messages || [];
   const conversationTitle = activeConversation?.title || undefined;
 
+  // Auto-dismiss error after 8 seconds
+  useEffect(() => {
+    if (!error) return;
+    const timer = setTimeout(() => {
+      useSearchStore.setState({ error: null });
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [error]);
+
   const scrollToBottom = useCallback(() => {
     if (flatListRef.current && messages.length > 0) {
       setTimeout(() => {
@@ -43,9 +54,19 @@ export default function SearchScreen() {
     }
   }, [messages.length]);
 
+  // Clear error when user starts interacting again
+  const clearError = useCallback(() => {
+    if (error) {
+      useSearchStore.setState({ error: null });
+    }
+  }, [error]);
+
   const handleSend = useCallback(
     async (query: string) => {
       try {
+        clearError();
+        lastQueryRef.current = query;
+
         const identity = await getIdentity();
         if (!identity) {
           Alert.alert('Error', 'Unable to authenticate. Please sign in and try again.');
@@ -65,8 +86,14 @@ export default function SearchScreen() {
         console.error('Search error:', err);
       }
     },
-    [activeConversation?.id, getIdentity, startSearch, sendFollowUp, scrollToBottom]
+    [activeConversation?.id, getIdentity, startSearch, sendFollowUp, scrollToBottom, clearError]
   );
+
+  const handleRetry = useCallback(() => {
+    if (lastQueryRef.current) {
+      handleSend(lastQueryRef.current);
+    }
+  }, [handleSend]);
 
   const handleFollowUpAnswer = useCallback(
     (answer: string) => {
@@ -214,6 +241,32 @@ export default function SearchScreen() {
           )}
         </View>
       )}
+
+      {/* Error banner with retry */}
+      {error && !isSearching ? (
+        <View className="flex-row items-center px-4 py-2.5 bg-red-50 border-t border-red-100">
+          <Ionicons name="alert-circle" size={16} color="#DC2626" />
+          <Text className="flex-1 text-[13px] text-red-700 font-inter ml-2" numberOfLines={2}>
+            {error}
+          </Text>
+          {lastQueryRef.current ? (
+            <TouchableOpacity
+              onPress={handleRetry}
+              activeOpacity={0.7}
+              className="ml-3 px-3 py-1.5 bg-red-600 rounded-full"
+            >
+              <Text className="text-[12px] text-white font-inter-medium">Retry</Text>
+            </TouchableOpacity>
+          ) : null}
+          <TouchableOpacity
+            onPress={clearError}
+            activeOpacity={0.7}
+            className="ml-2 p-1"
+          >
+            <Ionicons name="close" size={16} color="#DC2626" />
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       <ChatInput
         onSend={handleSend}
