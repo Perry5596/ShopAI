@@ -20,6 +20,7 @@ import {
 } from '@/utils/notifications';
 import type { Session, User } from '@supabase/supabase-js';
 import type { UserProfile, Identity } from '@/types';
+import { trackSignUp, identifyUser } from '@/utils/ads-analytics';
 
 // Ensure web browser auth sessions complete properly
 WebBrowser.maybeCompleteAuthSession();
@@ -215,6 +216,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Prompt for notification permissions on sign-in
           if (event === 'SIGNED_IN') {
             promptForNotifications(session.user.id);
+
+            // Track sign-up / sign-in for ads attribution
+            const provider = session.user.app_metadata?.provider as string | undefined;
+            const method: 'google' | 'apple' | 'guest' =
+              provider === 'apple' ? 'apple' :
+              provider === 'google' ? 'google' : 'google';
+            trackSignUp(method);
+            identifyUser(
+              session.user.id,
+              session.user.email ?? undefined,
+              session.user.user_metadata?.full_name ?? session.user.user_metadata?.name ?? undefined,
+            );
           }
         } else {
           useProfileStore.getState().clearProfile();
@@ -392,6 +405,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const tokenData = await ensureAnonToken();
       setAnonId(tokenData.anonId);
+
+      // Track guest sign-up for ads attribution
+      trackSignUp('guest');
 
       console.log('Guest mode activated:', tokenData.anonId);
     } catch (error) {

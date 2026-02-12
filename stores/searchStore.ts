@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { conversationService, searchService } from '@/utils/supabase-service';
+import { trackSearch } from '@/utils/ads-analytics';
 import type {
   Conversation,
   Message,
@@ -135,6 +136,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
   startSearch: async (query: string, identity: Identity) => {
     set({ isSearching: true, error: null, streamStatus: null, suggestedQuestions: [] });
+
+    // Track search event for ads attribution
+    trackSearch(query);
 
     try {
       // Add optimistic user message
@@ -353,6 +357,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     }
 
     set({ isSearching: true, error: null, streamStatus: null, suggestedQuestions: [] });
+
+    // Track follow-up search event for ads attribution
+    trackSearch(query);
 
     // Track exact IDs so error cleanup only removes THIS follow-up's messages
     const now = Date.now();

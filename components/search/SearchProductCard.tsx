@@ -7,6 +7,7 @@ import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import type { SearchProduct } from '@/types';
+import { trackLinkClick } from '@/utils/ads-analytics';
 
 function StarRating({ rating, size = 10 }: { rating: number; size?: number }) {
   const full = Math.floor(rating);
@@ -55,6 +56,7 @@ export function SearchProductCard({
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onLinkClick?.();
+    trackLinkClick(product.source, product.title, product.affiliateUrl);
     Linking.openURL(product.affiliateUrl);
   };
 

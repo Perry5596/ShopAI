@@ -9,6 +9,7 @@ import { useFonts, Inter_300Light, Inter_400Regular, Inter_500Medium, Inter_600S
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { updateLastActivity } from '@/utils/notifications';
+import { initializeAdsSDKs } from '@/utils/ads-analytics';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -90,6 +91,11 @@ export default function RootLayout() {
   useEffect(() => {
     console.log('[Fonts] Loading state - fontsLoaded:', fontsLoaded, 'fontError:', fontError);
   }, [fontsLoaded, fontError]);
+
+  // Initialise Meta & TikTok Ads SDKs (ATT prompt + SDK init)
+  useEffect(() => {
+    initializeAdsSDKs();
+  }, []);
 
   // Don't block rendering - proceed even if fonts fail
   // The app will use system fonts as fallback

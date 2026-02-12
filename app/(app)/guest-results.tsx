@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { analyticsService } from '@/utils/supabase-service';
+import { trackLinkClick } from '@/utils/ads-analytics';
 import type { ProductLink } from '@/types';
 
 /**
@@ -71,13 +72,16 @@ export default function GuestResultsScreen() {
     router.push('/?showSignIn=true');
   };
 
-  const handleProductPress = async (product: { affiliateUrl: string }) => {
+  const handleProductPress = async (product: { affiliateUrl: string; source?: string; title?: string }) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     
     // Track link click for authenticated users
     if (user?.id) {
       analyticsService.trackLinkClick(user.id);
     }
+
+    // Track link click for ads attribution (all users including guests)
+    trackLinkClick(product.source, product.title, product.affiliateUrl);
     
     try {
       const canOpen = await Linking.canOpenURL(product.affiliateUrl);

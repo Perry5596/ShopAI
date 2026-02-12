@@ -3,6 +3,7 @@ import { shopService, storageService, profileService } from '@/utils/supabase-se
 import { analyzeImage, RateLimitError, AuthRequiredError } from '@/utils/mock-ai-service';
 import { useShopStore } from './shopStore';
 import { getAnonTokenString } from '@/utils/anon-auth';
+import { trackScan } from '@/utils/ads-analytics';
 import type { Shop, UserProfile, Identity, ScanResponse } from '@/types';
 
 interface GuestScanResult {
@@ -179,6 +180,9 @@ export const useSnapStore = create<SnapState>((set, get) => ({
         });
       }
 
+      // Track scan event for ads attribution
+      trackScan(result.title);
+
       // Store guest result (use original local URI for display)
       const guestResult: GuestScanResult = {
         imageUri: uri,
@@ -262,6 +266,9 @@ async function processImageInBackground(
         },
       });
     }
+
+    // Track scan event for ads attribution
+    trackScan(result.title);
 
     // Complete the shop processing with the results (also increments user stats)
     await shopStore.completeShopProcessing(shopId, userId, result);

@@ -4,6 +4,7 @@ import * as Clipboard from 'expo-clipboard';
 import { Badge } from '../ui/Badge';
 import type { ProductLink } from '@/types';
 import * as Haptics from 'expo-haptics';
+import { trackLinkClick } from '@/utils/ads-analytics';
 
 // Affiliate logo imports
 const affiliateLogos: Record<string, ImageSourcePropType> = {
@@ -130,6 +131,7 @@ function ProductCard({ link, onShareProduct, onLinkClick, onSaveProduct }: { lin
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onLinkClick?.();
+    trackLinkClick(link.source, link.title, link.affiliateUrl);
     Linking.openURL(link.affiliateUrl);
   };
 
@@ -250,6 +252,7 @@ function RecommendedCard({ link, onShareProduct, onLinkClick, onSaveProduct }: {
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onLinkClick?.();
+    trackLinkClick(link.source, link.title, link.affiliateUrl);
     Linking.openURL(link.affiliateUrl);
   };
 
