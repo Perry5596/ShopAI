@@ -481,6 +481,19 @@ function processEngagementFunnel(
 }
 
 // ============================================================================
+// Module-level cache — persists across screen navigations within a session
+// ============================================================================
+
+const _cache: Map<string, AnalyticsRawData> = new Map();
+
+/**
+ * Clear the analytics cache (e.g. on sign-out).
+ */
+export function clearAnalyticsCache(): void {
+  _cache.clear();
+}
+
+// ============================================================================
 // Main Hook
 // ============================================================================
 
@@ -505,8 +518,11 @@ export function useAnalyticsData(
     createdAt?: string;
   } | null
 ): UseAnalyticsDataResult {
-  const [rawData, setRawData] = useState<AnalyticsRawData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // Seed state from module-level cache so returning to the screen is instant
+  const cached = userId ? _cache.get(userId) ?? null : null;
+
+  const [rawData, setRawData] = useState<AnalyticsRawData | null>(cached);
+  const [isLoading, setIsLoading] = useState(cached === null);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [savingsRange, setSavingsRange] = useState<TimeRange>('30D');
@@ -522,14 +538,20 @@ export function useAnalyticsData(
       return;
     }
 
+    const hasCachedData = _cache.has(userId);
     let cancelled = false;
-    setIsLoading(true);
+
+    // Only show the loading banner when there is no cached data at all
+    if (!hasCachedData) {
+      setIsLoading(true);
+    }
     setError(null);
 
     analyticsDataService
       .fetchAllAnalyticsData(userId)
       .then((data) => {
         if (!cancelled) {
+          _cache.set(userId, data);
           setRawData(data);
           setIsLoading(false);
         }
@@ -537,7 +559,10 @@ export function useAnalyticsData(
       .catch((err) => {
         if (!cancelled) {
           console.error('Failed to fetch analytics data:', err);
-          setError(err instanceof Error ? err.message : 'Failed to load analytics');
+          // Only surface the error if we have nothing cached to show
+          if (!hasCachedData) {
+            setError(err instanceof Error ? err.message : 'Failed to load analytics');
+          }
           setIsLoading(false);
         }
       });
