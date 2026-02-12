@@ -114,8 +114,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
 
-      // Update daily streak (non-blocking, fire and forget)
-      profileService.updateStreak(userId).catch((error) => {
+      // Update daily streak (non-blocking, but propagate result to store)
+      profileService.updateStreak(userId).then(({ streak, updated }) => {
+        if (updated) {
+          const store = useProfileStore.getState();
+          const current = store.profile;
+          if (current) {
+            store.setProfile({ ...current, currentStreak: streak });
+          }
+        }
+      }).catch((error) => {
         console.warn('Failed to update streak:', error);
       });
 

@@ -265,71 +265,30 @@ export const profileService = {
   },
 
   /**
-   * Update daily streak for a user
-   * Called when the app becomes active to track consecutive usage days
-   * 
-   * Logic:
-   * - If today matches lastActiveDate: do nothing (already counted)
-   * - If yesterday equals lastActiveDate: increment streak, update date
-   * - If more than 1 day gap: reset streak to 1, update date
+   * Update daily streak for a user.
+   * Uses a server-side RPC for atomic read-modify-write (no race conditions).
+   *
+   * A "day" is 12:00 AM – 11:59 PM in the user's local timezone.
+   * We send the device's local calendar date so the server never guesses timezones.
+   *
+   * Returns the (possibly updated) streak count and whether an update occurred.
    */
   async updateStreak(userId: string): Promise<{ streak: number; updated: boolean }> {
-    // Fetch current streak data
-    const { data: profile, error: fetchError } = await supabase
-      .from('profiles')
-      .select('current_streak, last_active_date')
-      .eq('id', userId)
-      .single();
+    // Build the user's local date as YYYY-MM-DD (never use toISOString — that's UTC)
+    const now = new Date();
+    const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
-    if (fetchError) throw fetchError;
+    const { data, error } = await supabase.rpc('update_user_streak', {
+      p_user_id: userId,
+      p_local_date: localDate,
+    });
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().split('T')[0];
+    if (error) throw error;
 
-    const lastActiveDate = profile?.last_active_date;
-    const currentStreak = profile?.current_streak ?? 0;
-
-    // If already active today, don't update
-    if (lastActiveDate === todayStr) {
-      return { streak: currentStreak, updated: false };
-    }
-
-    let newStreak: number;
-
-    if (lastActiveDate) {
-      const lastDate = new Date(lastActiveDate);
-      lastDate.setHours(0, 0, 0, 0);
-      
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-
-      // Check if last active was yesterday
-      if (lastDate.getTime() === yesterday.getTime()) {
-        // Consecutive day - increment streak
-        newStreak = currentStreak + 1;
-      } else {
-        // Gap in usage - reset streak
-        newStreak = 1;
-      }
-    } else {
-      // First time user - start streak at 1
-      newStreak = 1;
-    }
-
-    // Update the database
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({
-        current_streak: newStreak,
-        last_active_date: todayStr,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', userId);
-
-    if (updateError) throw updateError;
-
-    return { streak: newStreak, updated: true };
+    return {
+      streak: data?.streak ?? 0,
+      updated: data?.updated ?? false,
+    };
   },
 
   /**
