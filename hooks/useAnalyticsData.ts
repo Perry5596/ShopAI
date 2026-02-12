@@ -359,10 +359,10 @@ function processPriceDistribution(
   searchProducts: SearchProductAnalyticsRow[]
 ): PriceBucket[] {
   const buckets = [
-    { label: 'Under $25', min: 0, max: 25, count: 0 },
-    { label: '$25 - $50', min: 25, max: 50, count: 0 },
-    { label: '$50 - $100', min: 50, max: 100, count: 0 },
-    { label: '$100 - $200', min: 100, max: 200, count: 0 },
+    { label: '<$25', min: 0, max: 25, count: 0 },
+    { label: '$25-50', min: 25, max: 50, count: 0 },
+    { label: '$50-100', min: 50, max: 100, count: 0 },
+    { label: '$100-200', min: 100, max: 200, count: 0 },
     { label: '$200+', min: 200, max: Infinity, count: 0 },
   ];
 

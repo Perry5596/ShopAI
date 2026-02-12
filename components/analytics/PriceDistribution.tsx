@@ -27,15 +27,20 @@ export function PriceDistribution({ data }: PriceDistributionProps) {
     );
   }
 
+  // Evenly divide chart width among 5 bars
+  const numBars = data.length;
+  const slotWidth = CHART_WIDTH / numBars;
+  const barWidth = Math.min(slotWidth * 0.55, 40);
+  const spacing = slotWidth - barWidth;
+
   const barData = data.map((bucket, i) => ({
     value: bucket.count,
     label: bucket.label,
     frontColor: BAR_COLORS[i % BAR_COLORS.length],
     labelTextStyle: {
       color: '#9CA3AF',
-      fontSize: 9,
+      fontSize: 10,
       fontFamily: 'Inter_400Regular',
-      width: 50,
       textAlign: 'center' as const,
     },
     topLabelComponent: () =>
@@ -63,10 +68,11 @@ export function PriceDistribution({ data }: PriceDistributionProps) {
           data={barData}
           width={CHART_WIDTH}
           height={140}
-          barWidth={36}
-          spacing={16}
-          initialSpacing={12}
-          endSpacing={8}
+          barWidth={barWidth}
+          spacing={spacing}
+          initialSpacing={spacing / 2}
+          endSpacing={spacing / 2}
+          labelWidth={slotWidth}
           yAxisColor="transparent"
           xAxisColor="#E5E5EA"
           yAxisTextStyle={{
@@ -78,7 +84,6 @@ export function PriceDistribution({ data }: PriceDistributionProps) {
           noOfSections={4}
           barBorderTopLeftRadius={6}
           barBorderTopRightRadius={6}
-          adjustToWidth
         />
       </View>
     </ChartCard>

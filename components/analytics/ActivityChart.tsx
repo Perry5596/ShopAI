@@ -24,8 +24,16 @@ export function ActivityChart({
   const totalScans = data.reduce((sum, d) => sum + d.scans, 0);
   const totalSearches = data.reduce((sum, d) => sum + d.searches, 0);
 
-  // Determine label interval
-  const labelInterval = data.length > 14 ? Math.ceil(data.length / 7) : data.length > 7 ? 2 : 1;
+  // Compute bar sizing
+  const numBars = Math.max(data.length, 1);
+  const slotWidth = CHART_WIDTH / numBars;
+  const barWidth = Math.max(Math.min(slotWidth * 0.6, 24), 6);
+  const spacing = Math.max(slotWidth - barWidth, 2);
+
+  // Labels need at least ~36px to render a date like "12/31" without clipping.
+  // Calculate how many slots apart labels must be so they don't overlap.
+  const MIN_LABEL_WIDTH = 36;
+  const labelInterval = Math.max(Math.ceil(MIN_LABEL_WIDTH / slotWidth), 1);
 
   // Build stacked bar data
   const stackData = data.map((point, i) => ({
@@ -45,13 +53,9 @@ export function ActivityChart({
       color: '#9CA3AF',
       fontSize: 10,
       fontFamily: 'Inter_400Regular',
+      textAlign: 'center' as const,
     },
   }));
-
-  const barWidth = Math.max(
-    Math.min(CHART_WIDTH / Math.max(data.length, 1) - 6, 24),
-    8
-  );
 
   return (
     <ChartCard>
@@ -87,9 +91,10 @@ export function ActivityChart({
             width={CHART_WIDTH}
             height={140}
             barWidth={barWidth}
-            spacing={Math.max(CHART_WIDTH / Math.max(data.length, 1) - barWidth, 4)}
-            initialSpacing={8}
-            endSpacing={8}
+            spacing={spacing}
+            initialSpacing={spacing / 2}
+            endSpacing={spacing / 2}
+            labelWidth={Math.max(slotWidth, MIN_LABEL_WIDTH)}
             yAxisColor="transparent"
             xAxisColor="#E5E5EA"
             yAxisTextStyle={{
@@ -101,7 +106,6 @@ export function ActivityChart({
             noOfSections={4}
             barBorderTopLeftRadius={4}
             barBorderTopRightRadius={4}
-            adjustToWidth
           />
         </View>
       ) : (
