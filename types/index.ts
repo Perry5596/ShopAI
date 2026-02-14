@@ -460,3 +460,73 @@ export interface DbSearchProduct {
   created_at: string;
 }
 
+// ============================================================================
+// Featured Store Types (curated Amazon affiliate showcase)
+// ============================================================================
+
+export interface FeaturedStore {
+  id: string;
+  brandName: string;
+  brandLogoUrl: string | null;
+  shoppingCategory: string;
+  backgroundGradientStart: string;
+  backgroundGradientEnd: string;
+  backgroundImageUrl: string | null;
+  storeUrl: string | null;
+  isActive: boolean;
+  weekStart: string;
+  products: FeaturedStoreProduct[];
+  createdAt: string;
+}
+
+export interface FeaturedStoreProduct {
+  id: string;
+  storeId: string;
+  asin: string;
+  title: string;
+  description: string | null;
+  price: string | null;
+  extractedPrice: number | null;
+  oldPrice: string | null;
+  extractedOldPrice: number | null;
+  imageUrl: string | null;
+  rating: number | null;
+  reviewCount: number | null;
+  affiliateUrl: string;
+  sortOrder: number;
+  createdAt: string;
+}
+
+// Database row types for featured stores (snake_case from Supabase)
+export interface DbFeaturedStore {
+  id: string;
+  brand_name: string;
+  brand_logo_url: string | null;
+  shopping_category: string;
+  background_gradient_start: string;
+  background_gradient_end: string;
+  background_image_url: string | null;
+  store_url: string | null;
+  is_active: boolean;
+  week_start: string;
+  created_at: string;
+}
+
+export interface DbFeaturedStoreProduct {
+  id: string;
+  store_id: string;
+  asin: string;
+  title: string;
+  description: string | null;
+  price: string | null;
+  extracted_price: number | null;
+  old_price: string | null;
+  extracted_old_price: number | null;
+  image_url: string | null;
+  rating: number | null;
+  review_count: number | null;
+  affiliate_url: string;
+  sort_order: number;
+  created_at: string;
+}
+

@@ -3,14 +3,14 @@ import { View, ScrollView, StyleSheet, ActivityIndicator, Text, RefreshControl, 
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Header, StatsCard, MiniStatsRow, RecentShops } from '@/components/home';
+import { Header, RecentShops, FeaturedStoreCard } from '@/components/home';
 import { BottomTabBar } from '@/components/navigation';
 import { CenteredModal } from '@/components/ui/Modal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useShopStore } from '@/stores';
 import { useSearchStore } from '@/stores/searchStore';
-import { shopService, conversationService } from '@/utils/supabase-service';
-import type { Shop, Conversation } from '@/types';
+import { shopService, featuredStoreService } from '@/utils/supabase-service';
+import type { Shop, Conversation, FeaturedStore } from '@/types';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -18,7 +18,7 @@ export default function HomeScreen() {
   const { shops, isLoading, isLoadingMore, hasMore, error, fetchShops, fetchMoreShops, updateShop } = useShopStore();
   const { conversations, fetchConversations, renameConversation } = useSearchStore();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [totalFavorites, setTotalFavorites] = useState(0);
+  const [featuredStores, setFeaturedStores] = useState<FeaturedStore[]>([]);
   const [isEditTitleVisible, setIsEditTitleVisible] = useState(false);
   const [editTitleValue, setEditTitleValue] = useState('');
   const [editingShop, setEditingShop] = useState<Shop | null>(null);
@@ -35,25 +35,19 @@ export default function HomeScreen() {
     }
   }, [user?.id, fetchShops, fetchConversations]);
 
-  // Fetch total favorites count (lightweight query)
-  const loadFavoritesCount = useCallback(async () => {
-    if (!user?.id) return;
+  // Fetch featured stores (public data, no auth needed)
+  const loadFeaturedStores = useCallback(async () => {
     try {
-      const count = await shopService.countFavoriteShops(user.id);
-      setTotalFavorites(count);
+      const stores = await featuredStoreService.getActiveFeaturedStores();
+      setFeaturedStores(stores);
     } catch (err) {
-      console.error('Failed to count favorites:', err);
-      // Fallback to counting from loaded shops if query fails
-      setTotalFavorites((prev) => {
-        const localCount = shops.filter((s) => s.isFavorite).length;
-        return localCount > 0 ? localCount : prev;
-      });
+      console.error('Failed to load featured stores:', err);
     }
-  }, [user?.id]);
+  }, []);
 
   useEffect(() => {
-    loadFavoritesCount();
-  }, [loadFavoritesCount]);
+    loadFeaturedStores();
+  }, [loadFeaturedStores]);
 
   // Detect when processing shops become completed and refresh profile
   useEffect(() => {
@@ -90,12 +84,12 @@ export default function HomeScreen() {
         fetchShops(user.id),
         fetchConversations(user.id),
         refreshProfile(),
-        loadFavoritesCount(),
+        loadFeaturedStores(),
       ]);
     } finally {
       setIsRefreshing(false);
     }
-  }, [user?.id, fetchShops, refreshProfile, loadFavoritesCount]);
+  }, [user?.id, fetchShops, refreshProfile, loadFeaturedStores]);
 
   // Load more shops when scrolling near bottom
   const handleLoadMore = useCallback(() => {
@@ -113,22 +107,6 @@ export default function HomeScreen() {
       handleLoadMore();
     }
   }, [hasMore, isLoadingMore, handleLoadMore]);
-
-  // Use lifetime stats from profile (these only go up, never down)
-  const totalShops = profile?.totalShops ?? 0;
-  const totalProducts = profile?.totalProducts ?? 0;
-  const totalSavings = profile?.totalSavings ?? 0; // in cents
-
-  // Favorites count is fetched separately to get ALL favorites, not just loaded shops
-  // totalFavorites is set via useEffect above
-
-  // Calculate shops created this week (for display purposes)
-  const oneWeekAgo = new Date();
-  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-  const thisWeek = shops.filter((s) => new Date(s.createdAt) >= oneWeekAgo).length;
-
-  // Convert savings from cents to dollars
-  const savingsInDollars = Math.round(totalSavings / 100);
 
   const handleEditTitle = (shop: Shop) => {
     setEditingShop(shop);
@@ -215,23 +193,12 @@ export default function HomeScreen() {
         {/* Header */}
         <Header streak={profile?.currentStreak ?? 0} />
 
-        {/* Stats Section */}
-        <View className="pt-4">
-          {/* Main Stats Card */}
-          <StatsCard
-            totalShops={totalShops}
-            totalProducts={totalProducts}
-            favorites={totalFavorites}
-            thisWeek={thisWeek}
-          />
-
-          {/* Mini Stats Row */}
-          <MiniStatsRow
-            favorites={totalFavorites}
-            products={totalProducts}
-            savings={savingsInDollars}
-          />
-        </View>
+        {/* Featured Store Section */}
+        {featuredStores.length > 0 && (
+          <View className="pt-4 mb-4">
+            <FeaturedStoreCard stores={featuredStores} />
+          </View>
+        )}
 
         {/* Loading State */}
         {isLoading && shops.length === 0 && (

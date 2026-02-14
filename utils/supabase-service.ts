@@ -20,6 +20,10 @@ import type {
   DbSearchProduct,
   AgentSearchResponse,
   Identity,
+  FeaturedStore,
+  FeaturedStoreProduct,
+  DbFeaturedStore,
+  DbFeaturedStoreProduct,
 } from '@/types';
 
 // ============================================================================
@@ -950,6 +954,107 @@ export const storageService = {
     }
 
     return data.imageUrl;
+  },
+};
+
+// ============================================================================
+// Type Converters — Featured Stores
+// ============================================================================
+
+function dbFeaturedStoreProductToFeaturedStoreProduct(
+  dbProduct: DbFeaturedStoreProduct
+): FeaturedStoreProduct {
+  return {
+    id: dbProduct.id,
+    storeId: dbProduct.store_id,
+    asin: dbProduct.asin,
+    title: dbProduct.title,
+    description: dbProduct.description,
+    price: dbProduct.price,
+    extractedPrice: dbProduct.extracted_price,
+    oldPrice: dbProduct.old_price,
+    extractedOldPrice: dbProduct.extracted_old_price,
+    imageUrl: dbProduct.image_url,
+    rating: dbProduct.rating,
+    reviewCount: dbProduct.review_count,
+    affiliateUrl: dbProduct.affiliate_url,
+    sortOrder: dbProduct.sort_order,
+    createdAt: dbProduct.created_at,
+  };
+}
+
+function dbFeaturedStoreToFeaturedStore(
+  dbStore: DbFeaturedStore,
+  products: FeaturedStoreProduct[] = []
+): FeaturedStore {
+  return {
+    id: dbStore.id,
+    brandName: dbStore.brand_name,
+    brandLogoUrl: dbStore.brand_logo_url,
+    shoppingCategory: dbStore.shopping_category,
+    backgroundGradientStart: dbStore.background_gradient_start,
+    backgroundGradientEnd: dbStore.background_gradient_end,
+    backgroundImageUrl: dbStore.background_image_url,
+    storeUrl: dbStore.store_url,
+    isActive: dbStore.is_active,
+    weekStart: dbStore.week_start,
+    products,
+    createdAt: dbStore.created_at,
+  };
+}
+
+// ============================================================================
+// Featured Store Service
+// ============================================================================
+
+export const featuredStoreService = {
+  /**
+   * Fetch all currently active featured stores with their products.
+   * Returns an empty array if no active stores exist.
+   * This is public data — no auth required.
+   */
+  async getActiveFeaturedStores(): Promise<FeaturedStore[]> {
+    // Fetch all active stores, newest first
+    const { data: storesData, error: storeError } = await supabase
+      .from('featured_stores')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
+    if (storeError) {
+      console.error('Failed to fetch featured stores:', storeError);
+      return [];
+    }
+
+    if (!storesData || storesData.length === 0) return [];
+
+    // Fetch products for all stores in one query
+    const storeIds = storesData.map((s) => s.id);
+    const { data: productsData, error: productsError } = await supabase
+      .from('featured_store_products')
+      .select('*')
+      .in('store_id', storeIds)
+      .order('sort_order', { ascending: true });
+
+    // Group products by store_id
+    const productsByStoreId: Record<string, FeaturedStoreProduct[]> = {};
+    if (!productsError && productsData) {
+      for (const p of productsData as DbFeaturedStoreProduct[]) {
+        if (!productsByStoreId[p.store_id]) {
+          productsByStoreId[p.store_id] = [];
+        }
+        productsByStoreId[p.store_id].push(
+          dbFeaturedStoreProductToFeaturedStoreProduct(p)
+        );
+      }
+    }
+
+    return (storesData as DbFeaturedStore[]).map((dbStore) =>
+      dbFeaturedStoreToFeaturedStore(
+        dbStore,
+        productsByStoreId[dbStore.id] || []
+      )
+    );
   },
 };
 
