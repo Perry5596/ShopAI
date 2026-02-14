@@ -9,8 +9,11 @@ import { CenteredModal } from '@/components/ui/Modal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useShopStore } from '@/stores';
 import { useSearchStore } from '@/stores/searchStore';
-import { shopService, featuredStoreService } from '@/utils/supabase-service';
+import { shopService, featuredStoreService, analyticsService } from '@/utils/supabase-service';
 import type { Shop, Conversation, FeaturedStore } from '@/types';
+
+// Module-level cache so featured stores survive screen unmount/remount
+let _cachedFeaturedStores: FeaturedStore[] = [];
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -18,7 +21,7 @@ export default function HomeScreen() {
   const { shops, isLoading, isLoadingMore, hasMore, error, fetchShops, fetchMoreShops, updateShop } = useShopStore();
   const { conversations, fetchConversations, renameConversation } = useSearchStore();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [featuredStores, setFeaturedStores] = useState<FeaturedStore[]>([]);
+  const [featuredStores, setFeaturedStores] = useState<FeaturedStore[]>(_cachedFeaturedStores);
   const [isEditTitleVisible, setIsEditTitleVisible] = useState(false);
   const [editTitleValue, setEditTitleValue] = useState('');
   const [editingShop, setEditingShop] = useState<Shop | null>(null);
@@ -35,10 +38,12 @@ export default function HomeScreen() {
     }
   }, [user?.id, fetchShops, fetchConversations]);
 
-  // Fetch featured stores (public data, no auth needed)
+  // Fetch featured stores (public data, no auth needed).
+  // Writes to module-level cache so data survives screen remount.
   const loadFeaturedStores = useCallback(async () => {
     try {
       const stores = await featuredStoreService.getActiveFeaturedStores();
+      _cachedFeaturedStores = stores;
       setFeaturedStores(stores);
     } catch (err) {
       console.error('Failed to load featured stores:', err);
@@ -107,6 +112,12 @@ export default function HomeScreen() {
       handleLoadMore();
     }
   }, [hasMore, isLoadingMore, handleLoadMore]);
+
+  const handleFeaturedLinkClick = useCallback(() => {
+    if (user?.id) {
+      analyticsService.trackLinkClick(user.id);
+    }
+  }, [user?.id]);
 
   const handleEditTitle = (shop: Shop) => {
     setEditingShop(shop);
@@ -196,7 +207,7 @@ export default function HomeScreen() {
         {/* Featured Store Section */}
         {featuredStores.length > 0 && (
           <View className="pt-4 mb-4">
-            <FeaturedStoreCard stores={featuredStores} />
+            <FeaturedStoreCard stores={featuredStores} onLinkClick={handleFeaturedLinkClick} />
           </View>
         )}
 

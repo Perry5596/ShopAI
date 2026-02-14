@@ -22,7 +22,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_MARGIN = 20;
 const CARD_WIDTH = SCREEN_WIDTH - CARD_MARGIN * 2;
 const PRODUCT_CARD_WIDTH = 150;
-const PRODUCT_CARD_HEIGHT = 220;
+const PRODUCT_CARD_HEIGHT = 190;
 
 // ============================================================================
 // Product Mini Card (inside the horizontal scroll)
@@ -161,23 +161,24 @@ function computeSavings(products: FeaturedStoreProduct[]): number | null {
 
 interface SingleStoreCardProps {
   store: FeaturedStore;
+  onLinkClick?: () => void;
 }
 
-function SingleStoreCard({ store }: SingleStoreCardProps) {
+function SingleStoreCard({ store, onLinkClick }: SingleStoreCardProps) {
   const handleProductPress = (product: FeaturedStoreProduct) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    trackLinkClick();
+    onLinkClick?.();
+    trackLinkClick('Amazon', product.title, product.affiliateUrl);
     Linking.openURL(product.affiliateUrl).catch(() => {});
   };
 
   const handleStorePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    trackLinkClick();
-    if (store.storeUrl) {
-      Linking.openURL(store.storeUrl).catch(() => {});
-    } else if (store.products.length > 0) {
-      // Fallback: open the first product link
-      Linking.openURL(store.products[0].affiliateUrl).catch(() => {});
+    onLinkClick?.();
+    const url = store.storeUrl || store.products[0]?.affiliateUrl;
+    if (url) {
+      trackLinkClick('Amazon', store.brandName, url);
+      Linking.openURL(url).catch(() => {});
     }
   };
 
@@ -313,9 +314,11 @@ function SingleStoreCard({ store }: SingleStoreCardProps) {
 
 interface FeaturedStoreCardProps {
   stores: FeaturedStore[];
+  /** Called when any affiliate link is tapped (for Supabase analytics) */
+  onLinkClick?: () => void;
 }
 
-export function FeaturedStoreCard({ stores }: FeaturedStoreCardProps) {
+export function FeaturedStoreCard({ stores, onLinkClick }: FeaturedStoreCardProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const carouselRef = useRef<FlatList>(null);
 
@@ -334,7 +337,7 @@ export function FeaturedStoreCard({ stores }: FeaturedStoreCardProps) {
   if (stores.length === 1) {
     return (
       <View style={{ marginHorizontal: CARD_MARGIN }}>
-        <SingleStoreCard store={stores[0]} />
+        <SingleStoreCard store={stores[0]} onLinkClick={onLinkClick} />
       </View>
     );
   }
@@ -347,7 +350,7 @@ export function FeaturedStoreCard({ stores }: FeaturedStoreCardProps) {
         data={stores}
         renderItem={({ item }) => (
           <View style={{ width: SCREEN_WIDTH, paddingHorizontal: CARD_MARGIN }}>
-            <SingleStoreCard store={item} />
+            <SingleStoreCard store={item} onLinkClick={onLinkClick} />
           </View>
         )}
         keyExtractor={(item) => item.id}
